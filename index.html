@@ -717,6 +717,10 @@ body.pidiendo-impuesto .claim-sep{margin:6px auto}
 .nube-status{font-size:11px;margin-top:8px;line-height:1.5}
 .nube-status.ok{color:var(--success)}
 .nube-status.err{color:var(--danger)}
+.nube-import-btn{width:100%;margin-top:10px;background:#fff;border:1.5px dashed var(--brand);
+  color:var(--brand);padding:10px;border-radius:9px;font-size:12.5px;font-weight:700;
+  cursor:pointer;font-family:inherit}
+.nube-import-btn:disabled{opacity:.5;cursor:wait}
 
 
 .mant-details{ }
@@ -1262,6 +1266,9 @@ Este documento es de carácter contrato cliente-ofertador, que firmado constituy
           </div>
           <button type="button" id="nubeLogoutBtn">Salir</button>
         </div>
+        <button type="button" class="nube-import-btn" id="nubeImportBtn">
+          ⬇️ Importar historial de V1
+        </button>
       </div>
       <div id="nubeStatus" class="nube-status" style="display:none"></div>
     </div>
@@ -4798,6 +4805,82 @@ window.addEventListener('load', async ()=>{
     }catch(e){}
   }
 
+  /* ══════════════════════════════════════════════════════════════
+     IMPORTAR HISTORIAL DE V1 (Apps Script → Supabase, una sola vez)
+     Reutiliza exactamente el mismo parseo que ya usa syncListar()
+     para leer filas de Apps Script; nada de esto se envía de vuelta
+     al Apps Script, solo se lee de ahí y se sube a Supabase.
+     ══════════════════════════════════════════════════════════════ */
+  function filaDesdeAppsScript(row){
+    return {
+      num: String(row.orden||''),
+      cliente: row.cliente || '',
+      empresa: row.empresa || '',
+      telefono: row.telefono || '',
+      direccion: row.direccion || '',
+      cedula: row.cedula || '',
+      mail: row.mail || '',
+      atencion: row.atencion || '',
+      fecha: row.fecha ? String(row.fecha).slice(0,10) : '',
+      items: (typeof parseItemsNube==='function') ? parseItemsNube(row.items) : [],
+      total: row.total || '',
+      subtotal: row.total || '',
+      abono: row.abono || '',
+      saldo: row.saldo || '',
+      notas: '',
+      diasEntrega: row.diasEntrega || '30',
+      estado: row.estado || 'Cotizado',
+      iva: (row.iva!==undefined && row.iva!=='') ? String(row.iva) : '0'
+    };
+  }
+
+  window.nubeImportarV1 = async function(){
+    var uid = await uidActual();
+    if(!uid){ nubeStatus('Primero inicia sesión con Google.', 'err'); return; }
+
+    var url = (document.getElementById('cfgSyncUrl') && document.getElementById('cfgSyncUrl').value || '').trim();
+    if(!url){
+      url = (prompt('Pega la URL de Apps Script que usa tu V1 (Configuración → Facturación electrónica):')||'').trim();
+    }
+    if(!url) return;
+
+    var btn = $('nubeImportBtn');
+    if(btn){ btn.disabled = true; btn.textContent = '⏳ Importando...'; }
+    try{
+      var r = await fetch(url + '?accion=list');
+      var j = await r.json();
+      if(!j.ok || !Array.isArray(j.data)){
+        nubeStatus('No se pudo leer la hoja. Revisa la URL.', 'err');
+        return;
+      }
+
+      // Qué números ya existen en Supabase, para no duplicar
+      var existentes = {};
+      var res = await sb.from('cotizaciones').select('num').eq('user_id', uid);
+      (res.data||[]).forEach(function(r2){ existentes[String(r2.num)] = true; });
+
+      var nuevas = j.data.filter(function(row){ return row.orden && !existentes[String(row.orden)]; });
+      var subidas = 0, fallidas = 0;
+      for(var i=0; i<nuevas.length; i++){
+        var fila = filaANube(filaDesdeAppsScript(nuevas[i]));
+        if(!fila){ fallidas++; continue; }
+        fila.user_id = uid;
+        var up = await sb.from('cotizaciones').upsert(fila, { onConflict: 'user_id,num' });
+        if(up && up.error) fallidas++; else subidas++;
+      }
+
+      nubeStatus('✅ Importadas ' + subidas + ' de ' + j.data.length +
+                  ' (' + (j.data.length - nuevas.length) + ' ya estaban).' +
+                  (fallidas ? ' ' + fallidas + ' fallaron.' : ''), fallidas ? 'err' : 'ok');
+
+      try{ await window.syncListar(); if(typeof renderHistorial==='function') renderHistorial(); }catch(e){}
+    }catch(e){
+      nubeStatus('Error importando: revisa tu conexión y la URL.', 'err');
+    }finally{
+      if(btn){ btn.disabled = false; btn.textContent = '⬇️ Importar historial de V1'; }
+    }
+  };
+
   /* ---------- arranque ---------- */
   sb.auth.onAuthStateChange(function(event, session){
     currentUser = session ? session.user : null;
@@ -4812,6 +4895,7 @@ window.addEventListener('load', async ()=>{
   window.addEventListener('load', function(){
     var b1 = $('nubeLoginBtn');  if(b1) b1.onclick = function(){ window.nubeLogin(); };
     var b2 = $('nubeLogoutBtn'); if(b2) b2.onclick = function(){ window.nubeLogout(); };
+    var b3 = $('nubeImportBtn'); if(b3) b3.onclick = function(){ window.nubeImportarV1(); };
     renderAuthUI();
   });
 })();
