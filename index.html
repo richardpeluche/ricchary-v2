@@ -683,6 +683,41 @@ body.pidiendo-impuesto .claim-sep{margin:6px auto}
 .voz-btn.sec{background:#f1f5f9;color:#475569;border:1px solid #e2e8f0}
 .voz-vacio{text-align:center;color:var(--muted);font-size:12.5px;padding:16px 8px;line-height:1.6}
 
+
+/* ═══════════════════════════════════════════════════════════════
+   V2 · CUENTA / NUBE (Supabase)
+   Reemplaza la configuración manual del Apps Script para guardar
+   el historial de cotizaciones y los gastos. El Apps Script sigue
+   usándose SOLO para facturación electrónica (Datil) y consulta
+   de RUC, que necesitan credenciales secretas.
+   ═══════════════════════════════════════════════════════════════ */
+.nube-card{background:linear-gradient(135deg,#f0fbfc,#e5f6f8);border:1.5px solid var(--brand);
+  border-radius:14px;padding:16px;margin-bottom:16px}
+.nube-head{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.nube-head .t{font-size:13px;font-weight:800;color:var(--brand-dark)}
+.nube-sub{font-size:11.5px;color:var(--muted);line-height:1.5;margin-bottom:12px}
+.nube-btn{width:100%;display:flex;align-items:center;justify-content:center;gap:10px;
+  background:#fff;color:#3c4043;border:1.5px solid #dadce0;border-radius:9px;padding:11px;
+  font-size:13.5px;font-weight:700;cursor:pointer;font-family:inherit}
+.nube-btn:hover{background:#f8f9fa}
+.nube-btn:disabled{opacity:.5;cursor:wait}
+.nube-btn svg{width:18px;height:18px;flex-shrink:0}
+.nube-user{display:flex;align-items:center;gap:10px;background:#fff;border:1px solid #e2e8f0;
+  border-radius:10px;padding:10px 12px}
+.nube-user img{width:34px;height:34px;border-radius:50%;flex-shrink:0}
+.nube-user .av-fallback{width:34px;height:34px;border-radius:50%;background:var(--brand);
+  color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;flex-shrink:0}
+.nube-user .info{flex:1;min-width:0}
+.nube-user .email{font-size:12.5px;font-weight:700;color:var(--text);white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis}
+.nube-user .tag{font-size:10.5px;color:var(--success);font-weight:700}
+.nube-user button{background:#fff5f5;border:1px solid #fecaca;color:var(--danger);
+  padding:7px 12px;border-radius:8px;font-size:11.5px;font-weight:700;cursor:pointer;
+  font-family:inherit;flex-shrink:0}
+.nube-status{font-size:11px;margin-top:8px;line-height:1.5}
+.nube-status.ok{color:var(--success)}
+.nube-status.err{color:var(--danger)}
+
 </style>
 
 </head><body>
@@ -1227,6 +1262,37 @@ Este documento es de carácter contrato cliente-ofertador, que firmado constituy
       <input type="text" id="cfgLink" placeholder="Ej: https://linktr.ee/tuempresa">
       <small style="display:block;color:var(--muted);font-size:11px;margin-top:3px">Opcional. Vacío = sin link en mensajes.</small>
     </div>
+    <!-- ====== CUENTA / NUBE (V2 · Supabase) ====== -->
+    <div class="nube-card">
+      <div class="nube-head">
+        <span style="font-size:18px">☁️</span>
+        <span class="t">Cuenta en la nube</span>
+      </div>
+      <div class="nube-sub">
+        Inicia sesión con Google y tus cotizaciones y gastos se guardan solos,
+        en todos tus dispositivos. Reemplaza la configuración manual de abajo
+        para el historial — ya no hace falta copiar ninguna URL.
+      </div>
+      <div id="nubeLoggedOut">
+        <button type="button" class="nube-btn" id="nubeLoginBtn">
+          <svg viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.1 8 3l6-6C34.4 5.1 29.5 3 24 3 12.4 3 3 12.4 3 24s9.4 21 21 21 21-9.4 21-21c0-1.2-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="m6.3 14.7 6.6 4.8C14.6 15.9 19 13 24 13c3.1 0 5.8 1.1 8 3l6-6C34.4 5.1 29.5 3 24 3 16 3 9 7.4 6.3 14.7z"/><path fill="#4CAF50" d="M24 45c5.4 0 10.1-1.8 13.7-5l-6.4-5.2C29.3 36.7 26.8 37.5 24 37.5c-5.2 0-9.7-3.3-11.3-8l-6.6 5.1C9 40.6 16 45 24 45z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.1-4.1 5.4l6.4 5.2C41.4 35.6 45 30.3 45 24c0-1.2-.1-2.4-.4-3.5z"/></svg>
+          Iniciar sesión con Google
+        </button>
+      </div>
+      <div id="nubeLoggedIn" style="display:none">
+        <div class="nube-user">
+          <img id="nubeAvatar" style="display:none" alt="">
+          <div class="av-fallback" id="nubeAvatarFallback">?</div>
+          <div class="info">
+            <div class="email" id="nubeEmail">—</div>
+            <div class="tag">✓ Sincronizado</div>
+          </div>
+          <button type="button" id="nubeLogoutBtn">Salir</button>
+        </div>
+      </div>
+      <div id="nubeStatus" class="nube-status" style="display:none"></div>
+    </div>
+
     <!-- ====== SECCIÓN PRO ====== -->
     <div id="cfgProSection" style="background:linear-gradient(135deg,#f0f7ff,#e8f4fd);border:1.5px solid var(--brand);border-radius:14px;padding:16px;margin-bottom:4px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px">
@@ -1239,7 +1305,7 @@ Este documento es de carácter contrato cliente-ofertador, que firmado constituy
 
       <!-- Sincronización + Facturación unificada -->
       <div style="margin-bottom:12px">
-        <div style="font-size:13px;font-weight:700;color:var(--brand);margin-bottom:6px">☁️ Sincronización en la nube + 🧾 Facturación electrónica</div>
+        <div style="font-size:13px;font-weight:700;color:var(--brand);margin-bottom:6px">🧾 Facturación electrónica (Datil) y consulta de RUC</div><div style="font-size:11px;color:var(--muted);margin-bottom:8px;line-height:1.5">Esta URL ya <b>no hace falta</b> para guardar tu historial — eso lo resuelve la cuenta de arriba. Solo la necesitas si vas a emitir <b>facturas electrónicas</b> con Datil o consultar RUC.</div>
         <input type="text" id="cfgSyncUrl" placeholder="https://script.google.com/macros/s/.../exec" style="font-size:12px">
         <div style="display:flex;gap:8px;margin-top:6px">
           <button type="button" id="cfgTestSync" style="flex:1;background:var(--brand);color:#fff;border:none;padding:8px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">🔗 Probar conexión</button>
@@ -4311,6 +4377,411 @@ window.addEventListener('load', async ()=>{
     var c=$('vozClose'); if(c) c.onclick=function(){ $('vozModal').classList.remove('open'); };
     var o=$('vozModal');
     if(o) o.onclick=function(e){ if(e.target===o){ o.classList.remove('open'); if(grabando&&recog) try{recog.stop();}catch(x){} } };
+  });
+})();
+
+</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script>
+/* ═══════════════════════════════════════════════════════════════
+   V2 · CUENTA / NUBE (Supabase)
+   100% aditivo: envuelve las funciones sync* y cambiarEstado que
+   ya existen, sin tocar su lógica original ni la del Apps Script.
+
+   Alcance de HOY: historial de cotizaciones + gastos.
+   El Apps Script sigue siendo el único camino para Facturación
+   (Datil) y Consulta de RUC — esas credenciales son secretas y no
+   deben vivir en el navegador.
+   ═══════════════════════════════════════════════════════════════ */
+(function(){
+  var SUPABASE_URL = 'https://outmfhjwwghqqqaziwzf.supabase.co';
+  var SUPABASE_KEY = 'sb_publishable_4felda3eltMgSK8zuobiqQ_KvKxenJC';
+
+  if(typeof window.supabase === 'undefined' || !window.supabase.createClient){
+    console.warn('RICCHARY: no se pudo cargar el SDK de Supabase (sin internet o CDN bloqueado). La nube queda desactivada; la app sigue funcionando en modo local/Apps Script.');
+    return;
+  }
+  var sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  window.__sbClient = sb;   // expuesto por si otro módulo lo necesita más adelante (ej. catálogo)
+
+  var currentUser = null;
+  function $(id){ return document.getElementById(id); }
+
+  /* ---------- utilidades ---------- */
+  function parseMoney(txt){
+    if(typeof txt === 'number') return txt;
+    var s = String(txt||'').replace(/[^\d.,-]/g,'');
+    if(s.indexOf(',')>-1 && s.indexOf('.')>-1) s = s.replace(/\./g,'').replace(',','.');
+    else if(s.indexOf(',')>-1) s = s.replace(',','.');
+    var n = parseFloat(s);
+    return isNaN(n) ? 0 : n;
+  }
+  function nubeStatus(txt, tipo){
+    var el = $('nubeStatus'); if(!el) return;
+    el.textContent = txt;
+    el.className = 'nube-status' + (tipo ? ' '+tipo : '');
+    el.style.display = 'block';
+    clearTimeout(el._t);
+    el._t = setTimeout(function(){ el.style.display='none'; }, 4000);
+  }
+
+  /* ---------- sesión ---------- */
+  async function sesionActual(){
+    try{
+      var r = await sb.auth.getSession();
+      return (r && r.data && r.data.session) ? r.data.session : null;
+    }catch(e){ return null; }
+  }
+  async function uidActual(){
+    var s = await sesionActual();
+    return s && s.user ? s.user.id : null;
+  }
+
+  function renderAuthUI(){
+    var out = $('nubeLoggedOut'), inn = $('nubeLoggedIn');
+    if(!out || !inn) return;
+    if(currentUser){
+      out.style.display = 'none';
+      inn.style.display = 'block';
+      var email = currentUser.email || '';
+      var meta = currentUser.user_metadata || {};
+      var nombre = meta.full_name || meta.name || email;
+      var foto = meta.avatar_url || meta.picture || '';
+      var emailEl = $('nubeEmail'); if(emailEl) emailEl.textContent = nombre;
+      var av = $('nubeAvatar'), avF = $('nubeAvatarFallback');
+      if(foto && av){
+        av.src = foto; av.style.display = 'block';
+        if(avF) avF.style.display = 'none';
+      }else if(avF){
+        avF.textContent = (nombre||'?').trim().charAt(0).toUpperCase();
+        avF.style.display = 'flex';
+        if(av) av.style.display = 'none';
+      }
+    }else{
+      out.style.display = 'block';
+      inn.style.display = 'none';
+    }
+  }
+
+  window.nubeLogin = async function(){
+    var btn = $('nubeLoginBtn');
+    if(btn){ btn.disabled = true; }
+    try{
+      var redirectTo = window.location.origin + window.location.pathname;
+      var r = await sb.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo: redirectTo }
+      });
+      if(r && r.error){ nubeStatus('No se pudo iniciar sesión: '+r.error.message, 'err'); }
+      // Si no hay error, el navegador redirige a Google; no hay más que hacer aquí.
+    }catch(e){
+      nubeStatus('No se pudo iniciar sesión. Revisa tu conexión.', 'err');
+    }finally{
+      if(btn) btn.disabled = false;
+    }
+  };
+
+  window.nubeLogout = async function(){
+    if(!confirm('¿Cerrar sesión?\n\nTus cotizaciones y gastos siguen guardados en la nube. '+
+                'En este dispositivo seguirás viendo lo que tengas guardado localmente.')) return;
+    try{ await sb.auth.signOut(); }catch(e){}
+    currentUser = null;
+    CLOUD_HIST_NUBE_LIMPIAR();
+    renderAuthUI();
+    nubeStatus('Sesión cerrada.', 'ok');
+  };
+
+  function CLOUD_HIST_NUBE_LIMPIAR(){
+    // Al salir, se deja de mostrar lo que venía de Supabase para este usuario.
+    try{
+      if(typeof window.CLOUD_HIST !== 'undefined'){
+        window.CLOUD_HIST = window.CLOUD_HIST.filter(function(c){ return !c._nube; });
+      }
+    }catch(e){}
+    try{ if(typeof renderHistorial === 'function') renderHistorial(); }catch(e){}
+  }
+
+  /* ══════════════════════════════════════════════════════════════
+     COTIZACIONES
+     ══════════════════════════════════════════════════════════════ */
+
+  function facturadaLocalTxt(num){
+    try{
+      var f = JSON.parse(localStorage.getItem('ricchary_facturadas')||'{}');
+      return f[String(num)] || f[num] || '';
+    }catch(e){ return ''; }
+  }
+
+  function filaANube(cot){
+    var n = parseInt(cot.num, 10);
+    if(!n || isNaN(n)) return null;
+    return {
+      num: n,
+      empresa: cot.empresa || '',
+      cliente: cot.cliente || '',
+      telefono: cot.telefono || '',
+      direccion: cot.direccion || '',
+      cedula: cot.cedula || '',
+      mail: cot.mail || '',
+      atencion: cot.atencion || '',
+      fecha: cot.fecha || null,
+      items: cot.items || [],
+      subtotal: parseMoney(cot.subtotal),
+      imp_tasa: parseFloat(cot.iva) || 0,
+      imp_nombre: (typeof window.impNombre === 'function') ? window.impNombre() : 'IVA',
+      total: parseMoney(cot.total),
+      abono: parseFloat(String(cot.abono||'0').replace(',','.')) || 0,
+      saldo: parseMoney(cot.saldo),
+      notas: cot.notas || '',
+      dias_entrega: parseInt(cot.diasEntrega, 10) || 30,
+      estado: cot.estado || 'Cotizado'
+    };
+  }
+
+  function nubeAFila(row){
+    var fmt = function(n){ return '$'+Number(n||0).toLocaleString('es-EC',{minimumFractionDigits:2,maximumFractionDigits:2}); };
+    var localFact = facturadaLocalTxt(row.num);
+    var facturaTxt = '';
+    if(row.facturada){ facturaTxt = 'FACTURADO' + (row.factura_info ? (' - '+row.factura_info) : ''); }
+    else if(localFact){ facturaTxt = 'FACTURADO - '+localFact; }
+    return {
+      id: 'nube-'+row.num,
+      num: String(row.num),
+      savedAt: row.actualizado || row.creado || '',
+      fecha: row.fecha ? String(row.fecha).slice(0,10) : '',
+      cliente: row.cliente || '',
+      empresa: row.empresa || '',
+      telefono: row.telefono || '',
+      total: fmt(row.total),
+      items: Array.isArray(row.items) ? row.items : [],
+      estado: row.estado || 'Cotizado',
+      abono: (row.abono!=null && row.abono!=='') ? String(row.abono) : '',
+      saldo: fmt(row.saldo),
+      cedula: row.cedula || '',
+      direccion: row.direccion || '',
+      mail: row.mail || '',
+      atencion: row.atencion || '',
+      factura: facturaTxt,
+      diasEntrega: String(row.dias_entrega || 30),
+      iva: (row.imp_tasa!=null && row.imp_tasa!=='') ? String(row.imp_tasa) : '0',
+      notas: row.notas || '',
+      _cloud: true,
+      _nube: true
+    };
+  }
+
+  // ── guardar (crear/actualizar) ──────────────────────────────
+  if(typeof window.syncGuardar === 'function'){
+    var _syncGuardarOrig = window.syncGuardar;
+    window.syncGuardar = async function(cot){
+      var r1 = _syncGuardarOrig.apply(this, arguments);   // Apps Script (si está configurado), sin bloquear
+      var uid = await uidActual();
+      if(uid){
+        try{
+          var fila = filaANube(cot);
+          if(fila){
+            fila.user_id = uid;
+            var res = await sb.from('cotizaciones').upsert(fila, { onConflict: 'user_id,num' });
+            if(res && res.error) throw res.error;
+            nubeStatus('☁️ Guardado en tu cuenta', 'ok');
+          }
+        }catch(e){
+          nubeStatus('⚠️ No se pudo guardar en la nube (Supabase).', 'err');
+        }
+      }
+      try{ return await r1; }catch(e){ return null; }
+    };
+  }
+
+  // ── eliminar ─────────────────────────────────────────────────
+  if(typeof window.syncEliminar === 'function'){
+    var _syncEliminarOrig = window.syncEliminar;
+    window.syncEliminar = async function(num){
+      var r1 = _syncEliminarOrig.apply(this, arguments);
+      var uid = await uidActual();
+      if(uid){
+        try{
+          await sb.from('cotizaciones').delete().eq('user_id', uid).eq('num', parseInt(num,10));
+        }catch(e){}
+      }
+      try{ return await r1; }catch(e){ return null; }
+    };
+  }
+
+  // ── listar (fusiona con CLOUD_HIST, mismo formato que Apps Script) ──
+  if(typeof window.syncListar === 'function'){
+    var _syncListarOrig = window.syncListar;
+    window.syncListar = async function(){
+      var r1 = _syncListarOrig.apply(this, arguments);     // Apps Script, si aplica (no se toca)
+      var uid = await uidActual();
+      if(uid){
+        try{
+          var res = await sb.from('cotizaciones').select('*').eq('user_id', uid).order('num', {ascending:false});
+          if(res && res.error) throw res.error;
+          var filas = (res.data||[]).map(nubeAFila);
+          if(typeof window.CLOUD_HIST !== 'undefined'){
+            // Se reemplazan solo las filas que vinieron de la nube en esta cuenta;
+            // si además hay Apps Script configurado, sus filas conviven aparte.
+            var resto = window.CLOUD_HIST.filter(function(c){ return !c._nube; });
+            window.CLOUD_HIST = filas.concat(resto);
+          }else{
+            window.CLOUD_HIST = filas;
+          }
+          // Igual que hace el Apps Script: subir el contador local si la nube tiene más
+          try{
+            var maxNube = filas.reduce(function(m,c){ return Math.max(m, parseInt(c.num,10)||0); }, 0);
+            var lastLocal = parseInt(localStorage.getItem('ricchary_last_orden')||'100', 10);
+            if(maxNube > lastLocal) localStorage.setItem('ricchary_last_orden', String(maxNube));
+          }catch(e2){}
+        }catch(e){
+          nubeStatus('⚠️ No se pudo leer la nube. Se muestra lo local.', 'err');
+        }
+      }
+      try{ await r1; }catch(e){}
+    };
+  }
+
+  // ── siguiente número de orden (correlativo por usuario) ─────
+  if(typeof window.syncNextOrden === 'function'){
+    var _syncNextOrdenOrig = window.syncNextOrden;
+    window.syncNextOrden = async function(){
+      var uid = await uidActual();
+      if(uid){
+        try{
+          var res = await sb.rpc('siguiente_orden');
+          if(res && !res.error && res.data){ return res.data; }
+        }catch(e){}
+      }
+      try{ return await _syncNextOrdenOrig.apply(this, arguments); }catch(e){ return null; }
+    };
+  }
+
+  // ── agendar (marca agendado + fecha de entrega) ─────────────
+  if(typeof window.syncAgendar === 'function'){
+    var _syncAgendarOrig = window.syncAgendar;
+    window.syncAgendar = async function(orden, entrega){
+      var r1 = _syncAgendarOrig.apply(this, arguments);
+      var uid = await uidActual();
+      if(uid){
+        try{
+          await sb.from('cotizaciones').update({ agendado:true, estado:'Confirmado' })
+            .eq('user_id', uid).eq('num', parseInt(orden,10));
+        }catch(e){}
+      }
+      try{ return await r1; }catch(e){ return null; }
+    };
+  }
+
+  // ── cambiar estado ───────────────────────────────────────────
+  if(typeof window.cambiarEstado === 'function'){
+    var _cambiarEstadoOrig = window.cambiarEstado;
+    window.cambiarEstado = async function(orden, estado){
+      var r1 = _cambiarEstadoOrig.apply(this, arguments);
+      var uid = await uidActual();
+      if(uid){
+        try{
+          await sb.from('cotizaciones').update({ estado: estado })
+            .eq('user_id', uid).eq('num', parseInt(orden,10));
+        }catch(e){}
+      }
+      try{ return await r1; }catch(e){ return null; }
+    };
+  }
+
+  /* ══════════════════════════════════════════════════════════════
+     GASTOS
+     ══════════════════════════════════════════════════════════════ */
+  var GMAP_KEY = 'ricchary_gastos_nube_map';   // { [idLocal]: idSupabase }
+  function gastosMap(){ try{ return JSON.parse(localStorage.getItem(GMAP_KEY)||'{}'); }catch(e){ return {}; } }
+  function saveGastosMap(m){ try{ localStorage.setItem(GMAP_KEY, JSON.stringify(m)); }catch(e){} }
+
+  if(typeof window.repAgregarGasto === 'function'){
+    var _repAgregarGastoOrig = window.repAgregarGasto;
+    window.repAgregarGasto = async function(){
+      var antes = [];
+      try{ antes = JSON.parse(localStorage.getItem('ricchary_gastos')||'[]'); }catch(e){}
+      var r1 = _repAgregarGastoOrig.apply(this, arguments);
+      var uid = await uidActual();
+      if(uid){
+        try{
+          var ahora = JSON.parse(localStorage.getItem('ricchary_gastos')||'[]');
+          if(ahora.length > antes.length){
+            // el nuevo gasto se agrega al final (push); su id (timestamp) es el más alto
+            var masNuevo = ahora.reduce(function(a,b){ return (Number(a&&a.id)||0) > (Number(b.id)||0) ? a : b; }, ahora[0]);
+            var res = await sb.from('gastos').insert({
+              user_id: uid, fecha: masNuevo.fecha, concepto: masNuevo.concepto, monto: parseFloat(masNuevo.monto)||0
+            }).select('id').single();
+            if(res && !res.error && res.data){
+              var m = gastosMap(); m[masNuevo.id] = res.data.id; saveGastosMap(m);
+            }
+          }
+        }catch(e){}
+      }
+      return r1;
+    };
+  }
+
+  if(typeof window.repBorrarGasto === 'function'){
+    var _repBorrarGastoOrig = window.repBorrarGasto;
+    window.repBorrarGasto = async function(id){
+      var r1 = _repBorrarGastoOrig.apply(this, arguments);
+      var uid = await uidActual();
+      if(uid){
+        try{
+          var m = gastosMap();
+          var supaId = m[id];
+          if(supaId){
+            await sb.from('gastos').delete().eq('user_id', uid).eq('id', supaId);
+            delete m[id]; saveGastosMap(m);
+          }
+        }catch(e){}
+      }
+      return r1;
+    };
+  }
+
+  // Trae gastos de la nube que aún no estén en este dispositivo (una vez, al iniciar sesión)
+  async function nubePullGastos(){
+    var uid = await uidActual();
+    if(!uid) return;
+    try{
+      var res = await sb.from('gastos').select('*').eq('user_id', uid);
+      if(res && res.error) throw res.error;
+      var locales = [];
+      try{ locales = JSON.parse(localStorage.getItem('ricchary_gastos')||'[]'); }catch(e){}
+      var m = gastosMap();
+      var yaTraidos = {}; Object.keys(m).forEach(function(k){ yaTraidos[String(m[k])] = true; });
+      var agregados = false;
+      (res.data||[]).forEach(function(row){
+        if(yaTraidos[String(row.id)]) return;
+        var idLocal = 'nube-'+row.id;
+        locales.push({ id: idLocal, fecha: row.fecha, monto: row.monto, concepto: row.concepto });
+        m[idLocal] = row.id;
+        agregados = true;
+      });
+      if(agregados){
+        localStorage.setItem('ricchary_gastos', JSON.stringify(locales));
+        saveGastosMap(m);
+        try{ if(typeof window.repPintar === 'function') window.repPintar(); }catch(e){}
+      }
+    }catch(e){}
+  }
+
+  /* ---------- arranque ---------- */
+  sb.auth.onAuthStateChange(function(event, session){
+    currentUser = session ? session.user : null;
+    renderAuthUI();
+    if(currentUser && (event === 'SIGNED_IN' || event === 'INITIAL_SESSION')){
+      try{ window.syncNextOrden().then(function(n){ if(n && typeof setOrdenActual==='function') setOrdenActual(n); }); }catch(e){}
+      try{ window.syncListar().then(function(){ try{ if(typeof renderHistorial==='function') renderHistorial(); }catch(e2){} }); }catch(e){}
+      nubePullGastos();
+    }
+  });
+
+  window.addEventListener('load', function(){
+    var b1 = $('nubeLoginBtn');  if(b1) b1.onclick = function(){ window.nubeLogin(); };
+    var b2 = $('nubeLogoutBtn'); if(b2) b2.onclick = function(){ window.nubeLogout(); };
+    renderAuthUI();
   });
 })();
 
