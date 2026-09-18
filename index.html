@@ -957,7 +957,7 @@ body.pidiendo-impuesto .claim-sep{margin:6px auto}
         <div class="onb-badge onb-badge-free">VERSIÓN GRATIS</div>
         <h2>✅ Lo que tienes ahora</h2>
         <ul class="onb-list">
-          <li>Hasta 10 cotizaciones guardadas</li>
+          <li><b>10 cotizaciones en total</b> — editarlas cuantas veces quieras no cuenta</li>
           <li>Cotiza, envía y agenda sin restricciones</li>
           <li>Envío por WhatsApp</li>
           <li>Agendamiento en Google Calendar</li>
@@ -972,29 +972,58 @@ body.pidiendo-impuesto .claim-sep{margin:6px auto}
         <h2>💻📱 Trabaja en línea desde tu PC y tu celular</h2>
         <ul class="onb-list">
           <li>🔄 Cotiza en tu PC, continúa en tu Android — todo en línea, sin perder nada</li>
-          <li>♾️ Historial ILIMITADO: tus cotizaciones nunca se borran</li>
+          <li>♾️ Cotizaciones ILIMITADAS: sin tope de 10</li>
+          <li>📂 Reutiliza cotizaciones: cargar en formulario y repetir pedido</li>
           <li>💻 App instalable para Windows (.exe) incluida</li>
           <li>📄 Facturación electrónica SRI (con Datil)</li>
-          <li>☁️ Respaldo permanente en tu propia nube (Google Sheets)</li>
+          <li>☁️ Respaldo permanente en tu cuenta — nada que configurar</li>
         </ul>
         <button class="onb-pro-btn" id="onbProBtn">💬 Quiero la versión Pro</button>
       </div>
 
-      <!-- Slide 5: Cómo activar la sincronización (resumen del manual) -->
+      <!-- Slide 5: Cuenta en la nube (login con Google) -->
       <div class="onb-slide" data-slide="4">
-        <h2>☁️ Activar sincronización (versión Pro)</h2>
+        <h2>☁️ Tu cuenta en la nube</h2>
+        <p style="margin-bottom:14px">Inicia sesión con Google y tus cotizaciones y gastos se guardan solos, en todos tus dispositivos.</p>
         <ul class="onb-list">
-          <li>1️⃣ En la app, toca <b>"Clic aquí para copiar la plantilla"</b> y haz una copia en tu Google Sheets</li>
-          <li>2️⃣ En tu copia: <b>Extensiones → Apps Script → Implementar → Nueva implementación</b><br><span style="font-size:11px;opacity:.75">(en algunos equipos: <b>Desplegar → Nuevo despliegue</b>)</span></li>
-          <li>3️⃣ Acceso: <b>"Cualquier persona"</b> / <b>"Anyone"</b><br><span style="font-size:11px;opacity:.75">⚠️ NO "…con una cuenta de Google" ("Anyone with Google account")</span></li>
-          <li>4️⃣ Copia la URL que termina en <code>/exec</code></li>
-          <li>5️⃣ Pégala en <b>⚙️ Configuración</b> de esta app y toca "Probar conexión"</li>
+          <li>1️⃣ Entra a <b>⚙️ Configuración</b></li>
+          <li>2️⃣ Arriba verás <b>"Cuenta en la nube"</b></li>
+          <li>3️⃣ Toca <b>"Iniciar sesión con Google"</b></li>
         </ul>
-        <p style="font-size:12px;color:#94a3b8;margin-top:10px">Guía visual completa en el manual PDF (opcional), enlazado en Configuración.</p>
+        <div style="margin-top:14px;text-align:left;background:#ecfdf5;border:1px solid #a7f3d0;border-radius:10px;padding:12px 14px">
+          <div style="font-size:12.5px;color:#065f46;line-height:1.55">
+            Eso es todo — <b>no hay que copiar plantillas ni URLs</b>. Cotiza en la PC y sigue en el celular con la misma cuenta.
+          </div>
+        </div>
+        <div style="margin-top:10px;text-align:left;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px">
+          <div style="font-size:12px;color:#475569;line-height:1.55">
+            🧾 La URL de <b>Apps Script</b> en Configuración ya <b>no hace falta para el historial</b>.
+            Solo la necesitas si vas a emitir <b>facturas electrónicas</b> con Datil o consultar RUC.
+          </div>
+        </div>
       </div>
 
-      <!-- Slide 6: Empezar -->
+      <!-- Slide 6: Migración desde la versión anterior -->
       <div class="onb-slide" data-slide="5">
+        <h2>🔄 ¿Vienes de la versión anterior?</h2>
+        <p style="margin-bottom:14px">Puedes traer todo tu historial y seguir con la misma numeración.</p>
+        <ul class="onb-list">
+          <li>1️⃣ Inicia sesión con Google (paso anterior)</li>
+          <li>2️⃣ En esa misma tarjeta, toca <b>"⬇️ Importar historial de V1"</b></li>
+          <li>3️⃣ Listo — tus cotizaciones anteriores aparecen en el historial</li>
+        </ul>
+        <div style="margin-top:14px;text-align:left;background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:12px 14px">
+          <div style="font-size:12.5px;font-weight:800;color:#92400e;margin-bottom:5px">⚠️ Importa ANTES de guardar cotizaciones nuevas</div>
+          <div style="font-size:12px;color:#78350f;line-height:1.55">
+            Si guardas una cotización antes de importar, la numeración arranca de cero y ya no
+            continúa donde quedaste. Importa primero y la secuencia sigue de corrido.
+          </div>
+        </div>
+        <p style="font-size:11.5px;color:#94a3b8;margin-top:10px">Puedes tocar el botón varias veces sin miedo: no duplica nada.</p>
+      </div>
+
+      <!-- Slide 7: Empezar -->
+      <div class="onb-slide" data-slide="6">
         <h2>¡Todo listo!</h2>
         <p>Configura tu empresa y logo en ⚙️ Configuración. Empieza a cotizar ahora mismo.</p>
         <p style="font-size:12px;color:#94a3b8;margin-top:14px">💡 Puedes volver a ver esta guía cuando quieras desde Configuración → "Ver guía rápida"</p>
@@ -1009,7 +1038,7 @@ body.pidiendo-impuesto .claim-sep{margin:6px auto}
 
     <div class="onb-footer">
       <div class="onb-dots">
-        <span class="onb-dot active"></span><span class="onb-dot"></span><span class="onb-dot"></span><span class="onb-dot"></span><span class="onb-dot"></span><span class="onb-dot"></span>
+        <span class="onb-dot active"></span><span class="onb-dot"></span><span class="onb-dot"></span><span class="onb-dot"></span><span class="onb-dot"></span><span class="onb-dot"></span><span class="onb-dot"></span>
       </div>
       <div class="onb-nav">
         <button class="onb-skip" id="onbSkip">Saltar</button>
@@ -1726,13 +1755,35 @@ function guardarCotizacion(){
     alert('No hay datos que guardar. Completa al menos el cliente o los ítems.');
     return;
   }
+  // Tope real del plan Free. Se cuenta una COTIZACIÓN por cada par
+  // "número de orden + cliente": así editar la misma cotización del mismo
+  // cliente es gratis, pero sobrescribir una orden vieja con OTRO cliente
+  // cuenta como cotización nueva (es una nueva disfrazada).
+  // El registro es aparte del historial: "Borrar historial local" no lo toca.
+  if(!esPro()){
+    const clave = claveCot(cot);
+    let usados = [];
+    try{ usados = JSON.parse(localStorage.getItem('ricchary_nums_usados')||'[]'); }catch(e){}
+    const esNuevo = usados.indexOf(clave) === -1;
+    if(esNuevo && usados.length>=10){
+      if(typeof abrirModalPro==='function') abrirModalPro();
+      return;
+    }
+  }
   let hist = getHistory();
   // Evitar duplicado por id igual (edición)
   hist = hist.filter(c=>c.id!==cot.id && String(c.num)!==String(cot.num));
   hist.unshift(cot);
-  // Límite de cotizaciones locales: Pro = 30, Free = 10
-  // Límite de cotizaciones locales: Pro = ILIMITADO, Free = 10
-  if(!esPro() && hist.length>10) hist=hist.slice(0,10);
+  if(!esPro()){
+    const clave = claveCot(cot);
+    let usados = [];
+    try{ usados = JSON.parse(localStorage.getItem('ricchary_nums_usados')||'[]'); }catch(e){}
+    if(usados.indexOf(clave)===-1){
+      usados.push(clave);
+      try{ localStorage.setItem('ricchary_nums_usados', JSON.stringify(usados)); }catch(e){}
+    }
+    if(hist.length>10) hist=hist.slice(0,10);
+  }
   saveHistory(hist);
   showHistSaveBadge();
   syncGuardar(cot);
@@ -1740,6 +1791,44 @@ function guardarCotizacion(){
   // Fijar número de orden usado y preparar el siguiente
   const nActual = parseInt(document.getElementById('docOrden')?.getAttribute('data-num')||getNextOrden(),10);
   confirmarOrden(nActual);
+}
+
+// Identifica una cotización para el conteo del plan Free: número de orden
+// + cliente normalizado. Cambiar el cliente sobre una orden vieja produce
+// una clave distinta, o sea cuenta como cotización nueva.
+function claveCot(cot){
+  var norm = function(t){ return String(t||'').toLowerCase().replace(/\s+/g,' ').trim(); };
+  return String(cot.num) + '::' + norm(cot.empresa) + '|' + norm(cot.cliente);
+}
+
+// Free agotado = ya usó sus 10 números de orden. Con Pro nunca es true.
+function freeAgotado(){
+  if(esPro()) return false;
+  try{
+    var usados = JSON.parse(localStorage.getItem('ricchary_nums_usados')||'[]');
+    return usados.length >= 10;
+  }catch(e){ return false; }
+}
+
+// Repite una cotización con un número de orden NUEVO — la original queda intacta.
+// Mismo comportamiento que en la V1.
+function repetirCotizacion(cot){
+  const nuevo = getNextOrden();
+  if(!confirm('¿Repetir el pedido de '+(cot.cliente||'este cliente')+'?\n\n'+
+    '• Se copia el contenido de la proforma N° '+cot.num+'\n'+
+    '• Sale con número NUEVO: '+nuevo+'\n'+
+    '• Sin abono, en estado «Cotizado» y sin factura\n\n'+
+    'La proforma N° '+cot.num+' queda intacta.')) return;
+  cargarCotizacion(cot);
+  setOrdenActual(nuevo);
+  const fF=document.getElementById('fFecha'); if(fF) fF.value = new Date().toISOString().slice(0,10);
+  const fA=document.getElementById('fAbono'); if(fA) fA.value='';
+  estadoActual = 'Cotizado';
+  const nt=document.getElementById('fNotas');
+  if(nt){ const marca='Repite proforma '+cot.num;
+          if(nt.value.indexOf(marca)<0) nt.value=(nt.value?nt.value.trim()+'\n':'')+marca; }
+  if(window.marcarBotonFacturado) setTimeout(window.marcarBotonFacturado, 50);
+  if(typeof syncStatus==='function') syncStatus('🔁 Repetido → proforma N° '+nuevo, '#7c3aed');
 }
 
 function showHistSaveBadge(){
@@ -1924,7 +2013,12 @@ function renderHistorial(){
       </div>
       <div class="hist-card-items">${(cot.items||[]).slice(0,3).map(it=>`• ${it.qty} × ${it.desc}`).join('<br>')+(cot.items.length>3?`<br><small>+${cot.items.length-3} ítems más...</small>`:'')}</div>
       <div class="hist-card-actions">
-        <button class="btn-hist-load" onclick="cargarCotizacion(window._hist[${idx}])">📂 Cargar en formulario</button>
+        ${!freeAgotado()
+          ? `<button class="btn-hist-load" onclick="cargarCotizacion(window._hist[${idx}])">📂 Cargar en formulario</button>
+             <button class="btn-hist-load" style="background:#7c3aed" onclick="repetirCotizacion(window._hist[${idx}])">🔁 Repetir pedido</button>`
+          : `<button class="btn-hist-load" style="opacity:.65" onclick="abrirModalPro()">🔒 Cargar en formulario</button>
+             <button class="btn-hist-load" style="background:#7c3aed;opacity:.65" onclick="abrirModalPro()">🔒 Repetir pedido</button>`
+        }
         <button class="btn-hist-agenda" onclick="agendarDesdeCot(window._hist[${idx}])">${yaAgendado(cot.num)?'🔁 Reagendar':'📅 Agendar'}</button>
         ${esFacturada(cot)?`<button class="btn-hist-vfact" onclick="verFactura('${cot.num}')">📄 Ver Factura</button>`:''}
         ${cot._cloud?`<button class="btn-hist-del" onclick="eliminarCotNube('${String(cot.num).replace(/'/g,'')}')">🗑 Eliminar</button>`:`<button class="btn-hist-del" onclick="eliminarCot(${cot.id})">🗑 Eliminar</button>`}
