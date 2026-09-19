@@ -3966,6 +3966,8 @@ window.addEventListener('load', async ()=>{
       '<input type="file" id="srArchivoInput" accept=".txt" style="display:none" onchange="srManejarArchivo(event)">'+
       '<button class="rep-btn full" style="background:#fff;border:1.5px dashed var(--brand);color:var(--brand);margin-top:8px" '+
         'onclick="document.getElementById(\'srArchivoInput\').click()">📥 Importar del SRI (.txt)</button>'+
+      '<button class="rep-btn full" style="background:#fff;border:1.5px solid #7c3aed;color:#7c3aed;margin-top:8px" '+
+        'onclick="vozAbrirGasto()">🎙️ Dictar gasto</button>'+
       '<div id="srImportMsg" style="display:none;font-size:11.5px;margin-top:6px;padding:8px;border-radius:6px;line-height:1.5"></div>'+
       '</div>'+
       '<div class="rep-cards" style="grid-template-columns:1fr"><div class="rep-card">'+
@@ -4575,9 +4577,95 @@ window.addEventListener('load', async ()=>{
 
   /* ---------- Interpretar y previsualizar ---------- */
   var cliente=null;
+  var vozModoGasto=false;
+  // Quita las muletillas de gasto ("agrega a gastos", "anota un gasto de", "gasto de")
+  // y separa concepto + monto reutilizando el mismo extractor de precios que
+  // ya usa el intérprete de pedidos (sacarPrecio), para no duplicar esa lógica.
+  function srInterpretarGasto(texto){
+    var t = limpiar(texto).replace(/(\d),(\d{1,2})(?!\d)/g, '$1·$2');
+    var patronMuletilla = new RegExp(
+      '^(?:por\\s+favor\\s+|porfa\\s+)?(?:agrega(?:me)?|agregar|anota(?:me)?|anotar|' +
+      'apunta(?:me)?|apuntar|registra(?:me)?|registrar|pon(?:me)?|a[n\u00f1]ade(?:me)?|a[n\u00f1]adir)?' +
+      '\\s*(?:a\\s+)?(?:los\\s+)?gastos?\\s*(?:de\\s*)?'
+    );
+    t = t.replace(patronMuletilla, '');
+    var r = sacarPrecio(t);
+    var concepto = String(r.resto||'').replace(/·/g,'.').replace(/\s+/g,' ').trim();
+    concepto = concepto.replace(/^de\s+/,'').replace(/\s+de$/,'').trim();
+    if(concepto) concepto = concepto.charAt(0).toUpperCase()+concepto.slice(1);
+    return { concepto: concepto, monto: r.precio };
+  }
+
+  var gastoDictado = {concepto:'', monto:null};
+
+  window.vozPintarGasto=function(){
+    var c=$('vozResultado'); if(!c) return;
+    if(!gastoDictado.concepto && gastoDictado.monto==null){
+      c.innerHTML='<div class="voz-vacio">No pude entender el gasto.<br>'+
+        '<small>Prueba con algo como «pelón 120 dólares».</small></div>';
+      return;
+    }
+    var h='<div class="voz-prev">'+
+      '<div class="voz-prow" style="grid-template-columns:1fr 110px">'+
+        '<input class="d" value="'+esc(gastoDictado.concepto)+'" placeholder="Concepto" '+
+          'onchange="gastoDictado.concepto=this.value">'+
+        '<input class="p" type="number" step="0.01" value="'+(gastoDictado.monto!=null?Number(gastoDictado.monto).toFixed(2):'')+'" '+
+          'placeholder="Monto" onchange="gastoDictado.monto=parseFloat(this.value)||0">'+
+      '</div></div>';
+    if(gastoDictado.monto==null) h+='<div class="voz-extra">No detecté el monto — complétalo antes de agregar.</div>';
+    h+='<div class="voz-btnrow">'+
+       '<button class="voz-btn sec" onclick="vozLimpiar()">Empezar de nuevo</button>'+
+       '<button class="voz-btn" onclick="vozAgregarGasto()">✓ Agregar a gastos</button>'+
+       '</div>';
+    c.innerHTML=h;
+  };
+
+  window.vozAgregarGasto=function(){
+    if(!gastoDictado.concepto || !gastoDictado.monto || gastoDictado.monto<=0){
+      alert('Completa el concepto y un monto mayor a cero.'); return;
+    }
+    var fFecha=$('gFecha'), fMonto=$('gMonto'), fConcepto=$('gConcepto');
+    if(!fFecha || !fMonto || !fConcepto){ alert('Abre la pestaña Gastos primero.'); return; }
+    if(!fFecha.value) fFecha.value = new Date().toISOString().slice(0,10);
+    fMonto.value = gastoDictado.monto;
+    fConcepto.value = gastoDictado.concepto;
+    if(typeof window.repAgregarGasto==='function') window.repAgregarGasto();
+    $('vozModal').classList.remove('open');
+    vozRestaurarModoNormal();
+    vozLimpiar();
+  };
+
+  window.vozAbrirGasto=function(){
+    vozModoGasto = true;
+    vozLimpiar();
+    var tit=$('vozTitulo'), sub=$('vozSub'), ej=$('vozEj'), tx=$('vozTxt');
+    if(tit) tit.textContent='🎤 Dictar un gasto';
+    if(sub) sub.textContent='Dicta el gasto tal como lo dirías: qué fue y cuánto costó.';
+    if(ej) ej.innerHTML='Ejemplos: <b>«pelón 120 dólares»</b> · <b>«gasolina 25»</b> · <b>«agrega a gastos hilo 45.50»</b>.';
+    if(tx) tx.placeholder='Ej: pelón 120 dólares';
+    if(!recog && $('vozHint')) $('vozHint').textContent='Tu navegador no permite dictado. Escribe el gasto aquí abajo.';
+    $('vozModal').classList.add('open');
+  };
+
+  function vozRestaurarModoNormal(){
+    vozModoGasto = false;
+    var tit=$('vozTitulo'), sub=$('vozSub'), ej=$('vozEj'), tx=$('vozTxt');
+    if(tit) tit.textContent='🎤 Dictar o pegar pedido';
+    if(sub) sub.textContent='Dicta el pedido o pega el mensaje que te llegó por WhatsApp. La app lo separa en ítems y tú revisas antes de agregarlo.';
+    if(ej) ej.innerHTML='Sirve para cualquier producto o servicio: <b>«un abc de frenos cuesta 30»</b> · '+
+      '<b>«instalación de cámaras 150 dólares»</b> · <b>«3 tortas a 20»</b> · <b>«media docena de polos»</b>.<br>'+
+      'También entiende <b>«abono 50»</b> y <b>«para el viernes»</b>. Si lo que dices coincide con un producto de tu catálogo, toma su precio solo.';
+    if(tx) tx.placeholder='Ej: un abc de frenos cuesta 30, 2 cambios de aceite a 25 cada uno, abono 20';
+  }
+
   window.vozInterpretar=function(){
     var t=($('vozTxt')||{}).value||'';
-    if(!t.trim()){ alert('Dicta o escribe el pedido primero.'); return; }
+    if(!t.trim()){ alert('Dicta o escribe '+(vozModoGasto?'el gasto':'el pedido')+' primero.'); return; }
+    if(vozModoGasto){
+      gastoDictado = srInterpretarGasto(t);
+      vozPintarGasto();
+      return;
+    }
     var dc = datosCliente(t);
     cliente = dc.__hay ? dc : null;
     var r=interpretar(dc.__resto || t, catalogo());
@@ -4675,6 +4763,7 @@ window.addEventListener('load', async ()=>{
 
   window.vozAbrir=function(){
     try{ if(typeof impConfigurado==='function' && !impConfigurado()) return; }catch(e){}
+    vozRestaurarModoNormal();
     vozLimpiar();
     if(!recog && $('vozHint'))
       $('vozHint').textContent='Tu navegador no permite dictado. Escribe o pega el mensaje aquí abajo.';
@@ -4685,9 +4774,9 @@ window.addEventListener('load', async ()=>{
     var b=$('vozBtn');   if(b) b.onclick=function(){ vozAbrir(); };
     var m=$('vozMic');   if(m) m.onclick=function(){ vozMicToggle(); };
     var i=$('vozInterpretar'); if(i) i.onclick=function(){ vozInterpretar(); };
-    var c=$('vozClose'); if(c) c.onclick=function(){ $('vozModal').classList.remove('open'); };
+    var c=$('vozClose'); if(c) c.onclick=function(){ $('vozModal').classList.remove('open'); vozRestaurarModoNormal(); };
     var o=$('vozModal');
-    if(o) o.onclick=function(e){ if(e.target===o){ o.classList.remove('open'); if(grabando&&recog) try{recog.stop();}catch(x){} } };
+    if(o) o.onclick=function(e){ if(e.target===o){ o.classList.remove('open'); vozRestaurarModoNormal(); if(grabando&&recog) try{recog.stop();}catch(x){} } };
   });
 
   // Orden de los botones: aplicar el guardado (o el de fábrica) al arrancar
@@ -5297,9 +5386,9 @@ window.addEventListener('load', function(){
 <!-- MODAL DICTAR O PEGAR PEDIDO (V2) -->
 <div class="modal-overlay" id="vozModal">
   <div class="hist-box">
-    <div class="hist-title">🎤 Dictar o pegar pedido</div>
+    <div class="hist-title" id="vozTitulo">🎤 Dictar o pegar pedido</div>
     <button class="modal-close" id="vozClose">✕</button>
-    <div class="voz-sub">Dicta el pedido o pega el mensaje que te llegó por WhatsApp.
+    <div class="voz-sub" id="vozSub">Dicta el pedido o pega el mensaje que te llegó por WhatsApp.
       La app lo separa en ítems y tú revisas antes de agregarlo.</div>
 
     <button class="voz-mic" id="vozMic" type="button">🎤 <span id="vozMicTxt">Dictar</span></button>
@@ -5310,7 +5399,7 @@ window.addEventListener('load', function(){
         placeholder="Ej: un abc de frenos cuesta 30, 2 cambios de aceite a 25 cada uno, abono 20"></textarea>
     </div>
 
-    <div class="voz-ej">
+    <div class="voz-ej" id="vozEj">
       Sirve para cualquier producto o servicio: <b>«un abc de frenos cuesta 30»</b> ·
       <b>«instalación de cámaras 150 dólares»</b> · <b>«3 tortas a 20»</b> ·
       <b>«media docena de polos»</b>.<br>
