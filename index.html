@@ -731,6 +731,15 @@ body.pidiendo-impuesto .claim-sep{margin:6px auto}
 .mant-chevron{color:#94a3b8;transition:transform .18s ease;flex-shrink:0}
 .mant-details[open] .mant-chevron{transform:rotate(180deg)}
 .mant-details[open] .mant-summary-txt{color:var(--brand)}
+/* ══ Aviso de versión nueva ══ */
+#swBar{position:fixed;left:50%;transform:translateX(-50%);bottom:18px;z-index:9999;
+  display:none;align-items:center;gap:12px;padding:11px 16px;border-radius:12px;
+  background:#1f2937;color:#fff;font:600 14px/1.3 system-ui,sans-serif;
+  box-shadow:0 8px 26px rgba(0,0,0,.35)}
+#swBar.on{display:flex}
+#swGo{border:0;border-radius:8px;padding:8px 14px;cursor:pointer;
+  background:#22c55e;color:#062e14;font:700 14px/1 system-ui,sans-serif}
+@media(max-width:760px){#swBar{left:8px;right:8px;transform:none;justify-content:center}}
 </style>
 
 </head><body>
@@ -1086,7 +1095,7 @@ body.pidiendo-impuesto .claim-sep{margin:6px auto}
 </div>
 
 <!-- ACCIONES -->
-<div class="action-bar">
+<div class="action-bar" id="topActionBar">
   <button class="hist-btn" id="nuevaBtn" title="Nueva cotización (limpia el formulario)"><svg class="ic" aria-hidden="true"><use href="#ic-file-plus"></use></svg><span class="lbl2"> Nueva</span></button>
   <button class="hist-btn" id="histBtn" style="position:relative"><svg class="ic" aria-hidden="true"><use href="#ic-history"></use></svg><span class="lbl2"> Historial</span><span class="hist-save-badge" id="histSaveBadge">✓ Guardado</span></button>
   <button class="hist-btn" id="reporteBtn" title="Reporte contable para tu contador"><svg class="ic" aria-hidden="true"><use href="#ic-report-analytics"></use></svg><span class="lbl2"> Reporte</span></button>
@@ -1415,6 +1424,23 @@ Este documento es de carácter contrato cliente-ofertador, que firmado constituy
         </div>
       </div>
     
+    <details class="cfg-group orden-details" style="border-top:1px solid #e2e8f0;padding-top:14px;margin-top:4px">
+      <summary class="mant-summary">
+        <span class="mant-summary-txt">🔀 Orden de los botones</span>
+        <svg class="mant-chevron" viewBox="0 0 20 20" width="16" height="16" aria-hidden="true">
+          <path d="M5 7.5 10 12.5 15 7.5" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </summary>
+      <small style="display:block;color:#546E7A;font-size:11.5px;line-height:1.45;margin:10px 0 8px">
+        Ordena los botones de arriba a tu gusto con las flechas. Si iniciaste sesión con Google, el orden te sigue en todos tus dispositivos.
+      </small>
+      <div id="ordenBotonesLista"></div>
+      <button type="button" onclick="srRestaurarOrdenBotones()"
+        style="width:100%;margin-top:6px;background:#fff;border:1px solid #e2e8f0;color:#64748b;padding:8px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer">
+        Restaurar orden original
+      </button>
+    </details>
+
     <details class="cfg-group mant-details" style="border-top:1px solid #e2e8f0;padding-top:14px;margin-top:4px">
       <summary class="mant-summary">
         <span class="mant-summary-txt">🛠️ Mantenimiento avanzado</span>
@@ -3937,10 +3963,14 @@ window.addEventListener('load', async ()=>{
       '<label>Monto ($)<input type="number" step="0.01" id="gMonto" placeholder="0.00"></label>'+
       '<label class="full">Concepto<input id="gConcepto" placeholder="Ej: compra de gorras, hilo, envío"></label>'+
       '<button class="rep-btn full" onclick="repAgregarGasto()">➕ Agregar gasto</button>'+
+      '<input type="file" id="srArchivoInput" accept=".txt" style="display:none" onchange="srManejarArchivo(event)">'+
+      '<button class="rep-btn full" style="background:#fff;border:1.5px dashed var(--brand);color:var(--brand);margin-top:8px" '+
+        'onclick="document.getElementById(\'srArchivoInput\').click()">📥 Importar del SRI (.txt)</button>'+
+      '<div id="srImportMsg" style="display:none;font-size:11.5px;margin-top:6px;padding:8px;border-radius:6px;line-height:1.5"></div>'+
       '</div>'+
       '<div class="rep-cards" style="grid-template-columns:1fr"><div class="rep-card">'+
       '<div class="lbl">Total de gastos en el rango</div><div class="val">'+money(tot)+'</div></div></div>'+
-      '<div class="rep-nota">Los gastos se guardan <b>solo en este dispositivo</b>; no se sincronizan con tu hoja de Google.</div>'+
+      '<div class="rep-nota">Los gastos se guardan en este dispositivo y, si iniciaste sesión con Google, también en tu cuenta.</div>'+
       (g.length
         ? '<div class="rep-lista"><table class="rep-tabla"><tr><th>Fecha</th><th>Concepto</th>'+
           '<th class="num">Monto</th><th></th></tr>'+filas+'</table></div>'
@@ -4005,6 +4035,155 @@ window.addEventListener('load', async ()=>{
         : 'No hay pedidos confirmados sin factura en este rango.')+'<br>'+
       'Solo cuentan los que pasaron de «Cotizado» — los que siguen en cotización no son venta todavía.</div>';
   }
+
+  // ══════════════════════════════════════════════════════════════
+  // ORDEN DE LOS BOTONES (personalizable, por cuenta)
+  // ══════════════════════════════════════════════════════════════
+  var ORDEN_DEFECTO = ['nuevaBtn','histBtn','reporteBtn','prodBtn','cfgBtn','agendaBtn'];
+  var ORDEN_NOMBRES = {nuevaBtn:'Nueva', histBtn:'Historial', reporteBtn:'Reporte',
+    prodBtn:'Productos', cfgBtn:'Configuración', agendaBtn:'Agendar Pedido'};
+
+  function ordenBotonesActual(){
+    try{
+      var o = JSON.parse(localStorage.getItem('ricchary_orden_botones')||'null');
+      if(Array.isArray(o) && o.length===ORDEN_DEFECTO.length &&
+         ORDEN_DEFECTO.every(function(id){ return o.indexOf(id)>=0; })) return o;
+    }catch(e){}
+    return ORDEN_DEFECTO.slice();
+  }
+
+  function aplicarOrdenBotones(orden){
+    var cont = document.getElementById('topActionBar');
+    if(!cont) return;
+    orden.forEach(function(id){
+      var el = document.getElementById(id);
+      if(el) cont.appendChild(el);
+    });
+  }
+
+  function renderOrdenEditor(){
+    var cont = document.getElementById('ordenBotonesLista');
+    if(!cont) return;
+    var orden = ordenBotonesActual(), html='';
+    orden.forEach(function(id, i){
+      html += '<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:#fff;'+
+        'border:1px solid #e2e8f0;border-radius:8px;margin-bottom:6px">'+
+        '<span style="flex:1;font-size:12.5px;font-weight:600;color:var(--text)">'+(i+1)+'. '+ORDEN_NOMBRES[id]+'</span>'+
+        '<button type="button" onclick="srMoverBoton(\''+id+'\',-1)" '+(i===0?'disabled':'')+
+        ' style="width:30px;height:30px;border:1px solid #e2e8f0;background:'+(i===0?'#f1f5f9':'#fff')+
+        ';border-radius:6px;cursor:'+(i===0?'default':'pointer')+'">▲</button>'+
+        '<button type="button" onclick="srMoverBoton(\''+id+'\',1)" '+(i===orden.length-1?'disabled':'')+
+        ' style="width:30px;height:30px;border:1px solid #e2e8f0;background:'+(i===orden.length-1?'#f1f5f9':'#fff')+
+        ';border-radius:6px;cursor:'+(i===orden.length-1?'default':'pointer')+'">▼</button>'+
+        '</div>';
+    });
+    cont.innerHTML = html;
+  }
+
+  window.aplicarOrdenBotones = aplicarOrdenBotones;
+  window.renderOrdenEditor = renderOrdenEditor;
+  window.ordenBotonesActual = ordenBotonesActual;
+
+  window.srGuardarOrdenBotones = function(orden){
+    try{ localStorage.setItem('ricchary_orden_botones', JSON.stringify(orden)); }catch(e){}
+    aplicarOrdenBotones(orden);
+    renderOrdenEditor();
+    return orden;
+  };
+
+  window.srMoverBoton = function(id, dir){
+    var orden = ordenBotonesActual();
+    var i = orden.indexOf(id), j = i+dir;
+    if(i<0 || j<0 || j>=orden.length) return;
+    var tmp=orden[i]; orden[i]=orden[j]; orden[j]=tmp;
+    window.srGuardarOrdenBotones(orden);
+  };
+
+  window.srRestaurarOrdenBotones = function(){
+    window.srGuardarOrdenBotones(ORDEN_DEFECTO.slice());
+  };
+
+  // ══════════════════════════════════════════════════════════════
+  // IMPORTAR GASTOS DEL SRI (.txt de "Comprobantes electrónicos recibidos")
+  // ══════════════════════════════════════════════════════════════
+  function srFechaISO(txt){
+    var m = String(txt||'').trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+    if(!m) return '';
+    var d=('0'+m[1]).slice(-2), mo=('0'+m[2]).slice(-2), y=m[3];
+    return y+'-'+mo+'-'+d;
+  }
+
+  function srMostrarMsg(txt, tipo){
+    var el = document.getElementById('srImportMsg');
+    if(!el) return;
+    el.style.display='block';
+    el.style.background = tipo==='ok' ? '#ecfdf5' : (tipo==='err' ? '#fef2f2' : '#fffbeb');
+    el.style.color = tipo==='ok' ? '#065f46' : (tipo==='err' ? '#991b1b' : '#92400e');
+    el.textContent = txt;
+  }
+
+  window.srManejarArchivo = function(ev){
+    var file = ev.target.files && ev.target.files[0];
+    if(!file) return;
+    var reader = new FileReader();
+    reader.onload = function(e){ window.srImportarGastos(String(e.target.result||'')); };
+    reader.readAsText(file, 'utf-8');
+    ev.target.value = '';
+  };
+
+  // Devuelve los gastos NUEVOS que sí se agregaron (para que el módulo de
+  // nube, si hay sesión, los suba también) — ver wrap en el módulo Supabase.
+  window.srImportarGastos = function(texto){
+    var lineas = String(texto||'').split(/\r?\n/).filter(function(l){ return l.trim().length>0; });
+    if(lineas.length<2){
+      srMostrarMsg('⚠️ El archivo está vacío o no tiene el formato esperado.', 'err');
+      return [];
+    }
+    var encabezado = lineas[0].split('\t').map(function(h){ return h.trim(); });
+    function idx(nombre, fallback){ var i=encabezado.indexOf(nombre); return i>=0?i:fallback; }
+    var iRazon = idx('RAZON_SOCIAL_EMISOR', 1);
+    var iClave = idx('CLAVE_ACCESO', 4);
+    var iFecha = idx('FECHA_EMISION', 6);
+    var iTotal = idx('IMPORTE_TOTAL', 10);
+
+    var claves = {};
+    try{ claves = JSON.parse(localStorage.getItem('ricchary_gastos_sri_claves')||'{}'); }catch(e){}
+
+    var g = gastos();
+    var nuevos = [], duplicados=0, invalidos=0;
+
+    for(var i=1; i<lineas.length; i++){
+      var cols = lineas[i].split('\t');
+      if(cols.length <= Math.max(iRazon,iClave,iFecha,iTotal)){ invalidos++; continue; }
+      var clave = (cols[iClave]||'').trim();
+      if(!clave){ invalidos++; continue; }
+      if(claves[clave]){ duplicados++; continue; }
+      var fecha = srFechaISO(cols[iFecha]);
+      var monto = parseFloat(String(cols[iTotal]||'').trim().replace(',','.'));
+      var concepto = (cols[iRazon]||'').trim().replace(/\s+/g,' ');
+      if(!fecha || !monto || monto<=0 || !concepto){ invalidos++; continue; }
+      var nuevoId = String(Date.now())+'-'+i;
+      var gasto = {id:nuevoId, fecha:fecha, monto:monto, concepto:concepto};
+      g.push(gasto);
+      claves[clave] = nuevoId;
+      nuevos.push(gasto);
+    }
+
+    if(nuevos.length){
+      saveGastos(g);
+      try{ localStorage.setItem('ricchary_gastos_sri_claves', JSON.stringify(claves)); }catch(e){}
+      if(typeof repPintar==='function') repPintar();
+    }
+
+    srMostrarMsg(
+      (nuevos.length ? '✅ '+nuevos.length+' gasto'+(nuevos.length===1?'':'s')+' importado'+(nuevos.length===1?'':'s')+'. ' : 'No había gastos nuevos que importar. ') +
+      (duplicados ? duplicados+' ya estaban. ' : '') +
+      (invalidos ? invalidos+' fila(s) con datos incompletos, se omitieron.' : ''),
+      nuevos.length ? 'ok' : 'warn'
+    );
+
+    return nuevos;
+  };
 
   window.repAgregarGasto=function(){
     var f=($('gFecha')||{}).value, m=num(($('gMonto')||{}).value), c=(($('gConcepto')||{}).value||'').trim();
@@ -4510,6 +4689,12 @@ window.addEventListener('load', async ()=>{
     var o=$('vozModal');
     if(o) o.onclick=function(e){ if(e.target===o){ o.classList.remove('open'); if(grabando&&recog) try{recog.stop();}catch(x){} } };
   });
+
+  // Orden de los botones: aplicar el guardado (o el de fábrica) al arrancar
+  window.addEventListener('load', function(){
+    aplicarOrdenBotones(ordenBotonesActual());
+    renderOrdenEditor();
+  });
 })();
 
 </script>
@@ -4872,6 +5057,28 @@ window.addEventListener('load', async ()=>{
     };
   }
 
+  // ── importar del SRI: sube a Supabase cada gasto que sí se agregó ──
+  if(typeof window.srImportarGastos === 'function'){
+    var _srImportarGastosOrig = window.srImportarGastos;
+    window.srImportarGastos = async function(texto){
+      var nuevos = _srImportarGastosOrig(texto) || [];
+      var uid = await uidActual();
+      if(uid && nuevos.length){
+        var m = gastosMap();
+        for(var i=0; i<nuevos.length; i++){
+          try{
+            var res = await sb.from('gastos').insert({
+              user_id: uid, fecha: nuevos[i].fecha, concepto: nuevos[i].concepto, monto: parseFloat(nuevos[i].monto)||0
+            }).select('id').single();
+            if(res && !res.error && res.data) m[nuevos[i].id] = res.data.id;
+          }catch(e){}
+        }
+        saveGastosMap(m);
+      }
+      return nuevos;
+    };
+  }
+
   // Trae gastos de la nube que aún no estén en este dispositivo (una vez, al iniciar sesión)
   async function nubePullGastos(){
     var uid = await uidActual();
@@ -4975,6 +5182,39 @@ window.addEventListener('load', async ()=>{
     }
   };
 
+  // ── orden de los botones: se guarda por cuenta ──────────────
+  if(typeof window.srGuardarOrdenBotones === 'function'){
+    var _srGuardarOrdenBotonesOrig = window.srGuardarOrdenBotones;
+    window.srGuardarOrdenBotones = function(orden){
+      var r = _srGuardarOrdenBotonesOrig(orden);
+      uidActual().then(function(uid){
+        if(!uid) return;
+        sb.from('preferencias').upsert({ user_id: uid, orden_botones: orden }, { onConflict: 'user_id' }).then(function(){});
+      });
+      return r;
+    };
+  }
+
+  async function nubePullOrdenBotones(){
+    var uid = await uidActual();
+    if(!uid) return;
+    try{
+      var res = await sb.from('preferencias').select('orden_botones').eq('user_id', uid);
+      if(res && !res.error && res.data && res.data[0] &&
+         Array.isArray(res.data[0].orden_botones) && res.data[0].orden_botones.length){
+        try{ localStorage.setItem('ricchary_orden_botones', JSON.stringify(res.data[0].orden_botones)); }catch(e){}
+        if(typeof aplicarOrdenBotones==='function') aplicarOrdenBotones(res.data[0].orden_botones);
+        if(typeof renderOrdenEditor==='function') renderOrdenEditor();
+      }else{
+        // Nada guardado en la nube todavía: si hay un orden local personalizado, subirlo
+        var local = localStorage.getItem('ricchary_orden_botones');
+        if(local){
+          try{ await sb.from('preferencias').upsert({ user_id: uid, orden_botones: JSON.parse(local) }, { onConflict: 'user_id' }); }catch(e){}
+        }
+      }
+    }catch(e){}
+  }
+
   /* ---------- arranque ---------- */
   sb.auth.onAuthStateChange(function(event, session){
     currentUser = session ? session.user : null;
@@ -4983,6 +5223,7 @@ window.addEventListener('load', async ()=>{
       try{ window.syncNextOrden().then(function(n){ if(n && typeof setOrdenActual==='function') setOrdenActual(n); }); }catch(e){}
       try{ window.syncListar().then(function(){ try{ if(typeof renderHistorial==='function') renderHistorial(); }catch(e2){} }); }catch(e){}
       nubePullGastos();
+      nubePullOrdenBotones();
     }
   });
 
@@ -4996,13 +5237,45 @@ window.addEventListener('load', async ()=>{
 
 </script>
 <script>
-if('serviceWorker' in navigator){
-  window.addEventListener('load',()=>{
-    navigator.serviceWorker.register('./sw.js')
-      .then(reg=>console.log('SW registrado:',reg.scope))
-      .catch(err=>console.log('SW error:',err));
+/* ══ Service worker + aviso de versión nueva ══ */
+(function(){
+  if(!('serviceWorker' in navigator) || !/^https?:$/.test(location.protocol)) return;
+  var bar = document.getElementById('swBar');
+  var go  = document.getElementById('swGo');
+  var esperando = null, pedido = false;
+  function ofrecer(sw){ esperando = sw; if(bar) bar.classList.add('on'); }
+
+  window.addEventListener('load', function(){
+    navigator.serviceWorker.register('./sw.js', {updateViaCache:'none'}).then(function(reg){
+      if(reg.waiting && navigator.serviceWorker.controller) ofrecer(reg.waiting);
+      reg.addEventListener('updatefound', function(){
+        var nw = reg.installing; if(!nw) return;
+        nw.addEventListener('statechange', function(){
+          if(nw.state === 'installed' && navigator.serviceWorker.controller) ofrecer(nw);
+        });
+      });
+      document.addEventListener('visibilitychange', function(){
+        if(!document.hidden) reg.update().catch(function(){});
+      });
+    }).catch(function(){});
   });
-}
+
+  if(go) go.onclick = function(){
+    go.textContent = 'Actualizando…';
+    pedido = true;
+    if(esperando) esperando.postMessage({type:'SKIP_WAITING'});
+    /* Red de seguridad: si el cambio de control no llega, recargar igual */
+    setTimeout(function(){ if(pedido) recargar(); }, 3000);
+  };
+
+  var recargando = false;
+  function recargar(){ if(recargando) return; recargando = true; location.reload(); }
+  /* Solo se recarga si el usuario lo pidió: en la primera instalación el SW
+     toma el control solo (clients.claim) y eso NO debe recargar la página. */
+  navigator.serviceWorker.addEventListener('controllerchange', function(){
+    if(pedido) recargar();
+  });
+})();
 </script>
 
 <script>
@@ -5133,4 +5406,6 @@ window.addEventListener('load', function(){
   </div>
 </div>
 
+<div id="swBar">🆕 Hay una versión nueva de la app
+  <button id="swGo" type="button">Actualizar</button></div>
 </body></html>

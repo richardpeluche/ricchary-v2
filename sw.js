@@ -13,7 +13,7 @@
    ⚠️ AL SUBIR CAMBIOS: sube el número de CACHE (v1 → v2 → ...).
    Es lo único que hay que tocar.
    ═══════════════════════════════════════════════════════════════ */
-const CACHE = 'ricchary-v2-1';
+const CACHE = 'ricchary-v2-2';
 
 // Rutas relativas: funcionan en cualquier repositorio sin editarlas.
 const ASSETS = [
@@ -35,7 +35,8 @@ self.addEventListener('install', e => {
       Promise.all(ASSETS.map(u => c.add(u).catch(() => null)))
     )
   );
-  self.skipWaiting();
+  /* SIN skipWaiting(): la versión nueva espera a que el usuario
+     toque "Actualizar" en la barra de aviso. */
 });
 
 self.addEventListener('activate', e => {
@@ -45,6 +46,11 @@ self.addEventListener('activate', e => {
     )
   );
   self.clients.claim();
+});
+
+/* La app pide activar la versión nueva al tocar "Actualizar" */
+self.addEventListener('message', e => {
+  if (e.data && e.data.type === 'SKIP_WAITING') self.skipWaiting();
 });
 
 self.addEventListener('fetch', e => {
