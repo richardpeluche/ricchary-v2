@@ -2111,6 +2111,10 @@ function eliminarCotNube(num){
   if(!confirm('¿Eliminar DEFINITIVAMENTE la cotización #'+num+' de la nube?\nEsta acción no se puede deshacer.')) return;
   syncEliminar(num);
   CLOUD_HIST = CLOUD_HIST.filter(cn=>String(cn.num)!==String(num));
+  // La misma orden puede vivir TAMBIÉN en este dispositivo (p.ej. si se creó u
+  // editó aquí antes de subir a la nube). Sin esto, al fusionar de nuevo el
+  // historial local con la nube, la copia local resucitaba la tarjeta borrada.
+  saveHistory(getHistory().filter(function(c){ return String(c.num)!==String(num); }));
   renderHistorial();
 }
 async function syncEliminar(num){
