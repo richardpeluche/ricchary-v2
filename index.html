@@ -740,6 +740,15 @@ body.pidiendo-impuesto .claim-sep{margin:6px auto}
 #swGo{border:0;border-radius:8px;padding:8px 14px;cursor:pointer;
   background:#22c55e;color:#062e14;font:700 14px/1 system-ui,sans-serif}
 @media(max-width:760px){#swBar{left:8px;right:8px;transform:none;justify-content:center}}
+/* ══ Arrastrar botones de la barra superior (mantener presionado) ══ */
+#topActionBar > *{ touch-action:none; }
+.btn-arrastrando{
+  transform:scale(1.06);
+  box-shadow:0 6px 18px rgba(0,0,0,.28);
+  opacity:.92;
+  z-index:5;
+  position:relative;
+}
 </style>
 
 </head><body>
@@ -914,6 +923,8 @@ body.pidiendo-impuesto .claim-sep{margin:6px auto}
       </button>
     </div>
     <button class="link-prods" id="linkProductos" type="button">⚙️ Administrar mis productos</button>
+    <button class="link-prods" id="vozAutoBtn" type="button" onclick="vozAbrirAuto()"
+      style="border-color:#7c3aed;color:#7c3aed">🎙️ Dictado rápido (gasto o pedido)</button>
 
     <div id="impAviso" style="display:none;font-size:11.5px;color:#FFD54F;margin-bottom:10px;line-height:1.45">
       Elige tu impuesto arriba para continuar.
@@ -1247,6 +1258,7 @@ Este documento es de carácter contrato cliente-ofertador, que firmado constituy
   <button class="hist-btn" id="saveBtn" style="background:var(--brand);color:#fff;border-color:var(--brand)" title="Guardar cambios de esta cotización"><svg class="ic" aria-hidden="true"><use href="#ic-device-floppy"></use></svg><span class="lbl"> Guardar</span></button>
   <button class="btn btn-primary" id="printBtn"><svg class="ic" aria-hidden="true"><use href="#ic-printer"></use></svg> Imprimir / PDF</button>
   <button class="btn" id="waBtn" style="background:#25D366;color:#fff;border-color:#25D366"><svg class="ic" aria-hidden="true"><use href="#ic-brand-whatsapp"></use></svg> WhatsApp</button>
+  <button class="btn" id="excelBtn" style="background:#1D6F42;color:#fff;border-color:#1D6F42" title="Exportar a Excel (Pro)">📊 Excel</button>
 </div>
 
 
@@ -1435,12 +1447,32 @@ Este documento es de carácter contrato cliente-ofertador, que firmado constituy
         </svg>
       </summary>
       <small style="display:block;color:#546E7A;font-size:11.5px;line-height:1.45;margin:10px 0 8px">
-        Ordena los botones de arriba a tu gusto con las flechas. Si iniciaste sesión con Google, el orden te sigue en todos tus dispositivos.
+        Mantén presionado un botón en la barra de arriba (Nueva, Historial, Reporte...) y arrástralo a su nuevo lugar.
+        Si iniciaste sesión con Google, el orden te sigue en todos tus dispositivos.
       </small>
-      <div id="ordenBotonesLista"></div>
       <button type="button" onclick="srRestaurarOrdenBotones()"
-        style="width:100%;margin-top:6px;background:#fff;border:1px solid #e2e8f0;color:#64748b;padding:8px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer">
+        style="width:100%;margin-top:2px;background:#fff;border:1px solid #e2e8f0;color:#64748b;padding:8px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer">
         Restaurar orden original
+      </button>
+    </details>
+
+    <details class="cfg-group ia-details" style="border-top:1px solid #e2e8f0;padding-top:14px;margin-top:4px">
+      <summary class="mant-summary">
+        <span class="mant-summary-txt">🤖 Reconocimiento por IA (opcional)</span>
+        <svg class="mant-chevron" viewBox="0 0 20 20" width="16" height="16" aria-hidden="true">
+          <path d="M5 7.5 10 12.5 15 7.5" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </summary>
+      <small style="display:block;color:#546E7A;font-size:11.5px;line-height:1.45;margin:10px 0 8px">
+        Respaldo para cuando el dictado no logra separar el monto solo. Requiere tu propia función en la nube
+        (no incluida) — pídele a quien te dio la app la URL, o déjalo vacío para seguir usando solo el
+        reconocimiento local (gratis, sin conexión).
+      </small>
+      <input id="cfgIaUrl" placeholder="URL de tu función de IA (opcional)"
+        style="width:100%;padding:9px;border:1px solid #cbd5e1;border-radius:8px;font-size:12.5px;margin-bottom:8px">
+      <button type="button" onclick="guardarIaUrl()"
+        style="width:100%;background:#fff;border:1px solid #e2e8f0;color:#64748b;padding:8px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer">
+        Guardar
       </button>
     </details>
 
@@ -2177,6 +2209,8 @@ function loadConfig(){
   const cfgLk=document.getElementById('cfgLink');if(cfgLk&&lk)cfgLk.value=lk;
   const su=localStorage.getItem('cfg_sync_url')||'';
   const cfgSu=document.getElementById('cfgSyncUrl');if(cfgSu&&su)cfgSu.value=su;
+  const iaU=localStorage.getItem('cfg_ia_url')||'';
+  const cfgIa=document.getElementById('cfgIaUrl');if(cfgIa&&iaU)cfgIa.value=iaU;
   // Selector de ambiente de facturación
   const chkProd=document.getElementById('cfgDatilProd');
   if(chkProd){
@@ -2578,6 +2612,50 @@ document.getElementById('saveBtn').onclick=()=>{
 };
 
 document.getElementById('printBtn').onclick=()=>{ guardarCotizacion(); window.print(); };
+
+// ── Exportar a Excel (Pro): entrega más profesional para el cliente ──
+window.exportarExcel = function(){
+  if(!esPro()){ if(typeof abrirModalPro==='function') abrirModalPro(); return; }
+  if(typeof XLSX==='undefined'){ alert('No se pudo cargar el módulo de Excel. Revisa tu conexión e inténtalo de nuevo.'); return; }
+  const cot = captureCotizacion();
+  if(!cot.cliente && (!cot.items||!cot.items.length)){
+    alert('Llena al menos el cliente y un ítem antes de exportar.'); return;
+  }
+  guardarCotizacion();
+
+  const empresa = (localStorage.getItem('cfg_empresa')||'').trim() || 'Mi Empresa';
+  const link = (localStorage.getItem('cfg_link')||'').trim();
+  const filas = [];
+  filas.push([empresa]);
+  filas.push(['Proforma N° ' + (cot.num||'')]);
+  filas.push([]);
+  filas.push(['Cliente', cot.cliente||'']);
+  if(document.getElementById('fEmpresa')?.value) filas.push(['Empresa', document.getElementById('fEmpresa').value]);
+  filas.push(['Fecha', cot.fecha||'']);
+  if(cot.telefono) filas.push(['Teléfono', cot.telefono]);
+  if(cot.direccion) filas.push(['Dirección', cot.direccion]);
+  if(cot.cedula) filas.push(['CI/RUC', cot.cedula]);
+  filas.push([]);
+  filas.push(['Cant.', 'Descripción', 'Precio unit.', 'Subtotal']);
+  (cot.items||[]).forEach(it=>{
+    filas.push([Number(it.qty)||it.qty, it.desc||'', it.price?Number(it.price):'', it.sub||'']);
+  });
+  filas.push([]);
+  filas.push(['', '', 'Subtotal', cot.subtotal||'']);
+  filas.push(['', '', 'Total', cot.total||'']);
+  if(cot.abono){ filas.push(['', '', 'Abono', '$'+cot.abono]); filas.push(['', '', 'Saldo', cot.saldo||'']); }
+  if(cot.notas) { filas.push([]); filas.push(['Notas', cot.notas]); }
+  if(link) { filas.push([]); filas.push([link]); }
+
+  const ws = XLSX.utils.aoa_to_sheet(filas);
+  ws['!cols'] = [{wch:10},{wch:42},{wch:14},{wch:14}];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Proforma');
+  const nombreCliente = (cot.cliente||'cliente').replace(/[^a-zA-Z0-9]+/g,'_').slice(0,30);
+  XLSX.writeFile(wb, 'Proforma_'+(cot.num||'s-n')+'_'+nombreCliente+'.xlsx');
+  syncStatus('📊 Excel generado', '#1D6F42');
+};
+document.getElementById('excelBtn').onclick = window.exportarExcel;
 // ===== FACTURACIÓN ELECTRÓNICA (DATIL) =====
 (function(){
   const overlay = ()=>document.getElementById('factOverlay');
@@ -3519,6 +3597,62 @@ window.addEventListener('load', async ()=>{
    ['ch1','Chompa Labrada Clima Frío','Chalecos & Chompas',13.00]
   ];
   /* ═══════════════════ FIN DE LA SEMILLA ═══════════════════════════ */
+
+  /* ══════════════════════════════════════════════════════════════════
+     DICCIONARIOS POR OFICIO — productos/servicios de referencia para
+     arrancar el catálogo rápido. Precios orientativos, el usuario los
+     ajusta después. Se suman al catálogo existente, sin borrar nada.
+     ══════════════════════════════════════════════════════════════════ */
+  var OFICIOS = {
+    carpinteria: {nombre:'Carpintería', items:[
+      ['Mesa de comedor','Muebles',180],
+      ['Silla de madera','Muebles',35],
+      ['Puerta de madera (interior)','Puertas y closets',120],
+      ['Clóset a medida (m²)','Puertas y closets',150],
+      ['Repisa flotante','Muebles',25],
+      ['Cama 2 plazas','Muebles',220],
+      ['Acabado y barniz','Acabados',30],
+      ['Reparación de mueble','Servicios',20]
+    ]},
+    mecanica: {nombre:'Mecánica automotriz', items:[
+      ['Cambio de aceite y filtro','Mantenimiento',25],
+      ['Cambio de frenos (par)','Frenos',45],
+      ['Alineación y balanceo','Llantas',20],
+      ['Instalación de batería','Eléctrico',15],
+      ['Revisión general','Diagnóstico',15],
+      ['Cambio de bandas','Motor',30],
+      ['Reparación de suspensión','Suspensión',60],
+      ['Escaneo electrónico','Diagnóstico',20]
+    ]},
+    textil: {nombre:'Fábrica textil', items:[
+      ['Camiseta básica algodón','Prendas',8],
+      ['Uniforme escolar (juego)','Uniformes',25],
+      ['Bordado personalizado (por prenda)','Personalización',3],
+      ['Estampado (por prenda)','Personalización',2.5],
+      ['Chompa polar','Prendas',18],
+      ['Mandil / delantal','Prendas',10],
+      ['Confección por metraje (m)','Servicios',5]
+    ]},
+    costura: {nombre:'Costura y arreglos', items:[
+      ['Arreglo de basta','Arreglos',3],
+      ['Cambio de cierre','Arreglos',5],
+      ['Ajuste de talla','Arreglos',6],
+      ['Confección de cortina (m)','Confección',8],
+      ['Funda de cojín','Confección',6],
+      ['Reparación de forro','Arreglos',4],
+      ['Vestido a medida','Confección',40]
+    ]},
+    dentista: {nombre:'Consultorio dental', items:[
+      ['Limpieza dental','Preventivo',25],
+      ['Extracción simple','Cirugía',30],
+      ['Resina (por pieza)','Restauración',35],
+      ['Consulta / valoración','Consulta',15],
+      ['Blanqueamiento dental','Estética',80],
+      ['Radiografía dental','Diagnóstico',10],
+      ['Endodoncia (por conducto)','Tratamiento',60]
+    ]}
+  };
+
   function $(id){ return document.getElementById(id); }
 
   function pro(){ try{ return typeof esPro==='function' ? esPro() : false; }catch(e){ return false; } }
@@ -3632,9 +3766,43 @@ window.addEventListener('load', async ()=>{
   window.catListo=function(){ $('selProdModal').classList.remove('open'); salirDelInicio(); };
 
   /* ---------- Administrar ---------- */
+  function catPoblarOficios(){
+    var sel = $('catOficioSel'); if(!sel || sel.options.length) return;
+    var h = '<option value="">Elige un oficio…</option>';
+    Object.keys(OFICIOS).forEach(function(k){ h += '<option value="'+k+'">'+esc(OFICIOS[k].nombre)+'</option>'; });
+    sel.innerHTML = h;
+  }
+
+  window.catImportarOficio = function(){
+    var sel = $('catOficioSel'), key = sel ? sel.value : '';
+    var of = OFICIOS[key];
+    if(!of){ alert('Elige un oficio de la lista.'); return; }
+    var ps = getProds(), existentes = {};
+    ps.forEach(function(p){ existentes[String(p.codigo).toLowerCase()] = true; });
+    var esP = pro(), agregados=0, omitidosLimite=0, omitidosDup=0;
+    for(var i=0;i<of.items.length;i++){
+      if(!esP && ps.length>=TOPE_FREE){ omitidosLimite += (of.items.length-i); break; }
+      var it = of.items[i], codigo = key+'-'+(i+1);
+      if(existentes[codigo]){ omitidosDup++; continue; }
+      ps.push({id:Date.now()+i, codigo:codigo, producto:it[0], categoria:it[1],
+        descripcion:'', precio:it[2], costo:null, activo:true,
+        alta:new Date().toISOString().slice(0,10)});
+      existentes[codigo]=true; agregados++;
+    }
+    saveProds(ps); catPintarAdmin();
+    var msg = agregados
+      ? '✅ '+agregados+' producto'+(agregados===1?'':'s')+' de "'+of.nombre+'" agregado'+(agregados===1?'':'s')+'.'
+      : 'No se agregó nada nuevo.';
+    if(omitidosDup) msg += ' '+omitidosDup+' ya estaban.';
+    if(omitidosLimite) msg += ' '+omitidosLimite+' quedaron fuera por el límite del plan Free.';
+    var el=$('catOficioMsg');
+    if(el){ el.style.display='block'; el.style.background=agregados?'#ecfdf5':'#fffbeb';
+      el.style.color=agregados?'#065f46':'#92400e'; el.textContent=msg; }
+  };
+
   window.catAbrirAdmin=function(){
     if(!impListo()) return;
-    catLimpiarForm(); catPintarAdmin(); $('admProdModal').classList.add('open');
+    catLimpiarForm(); catPintarAdmin(); catPoblarOficios(); $('admProdModal').classList.add('open');
   };
   window.catPintarAdmin=function(){
     var ps=getProds(), n=ps.length, esP=pro();
@@ -4049,11 +4217,10 @@ window.addEventListener('load', async ()=>{
   }
 
   // ══════════════════════════════════════════════════════════════
-  // ORDEN DE LOS BOTONES (personalizable, por cuenta)
+  // ORDEN DE LOS BOTONES (personalizable, por cuenta) — mantener
+  // presionado y arrastrar, directo sobre la barra superior.
   // ══════════════════════════════════════════════════════════════
   var ORDEN_DEFECTO = ['nuevaBtn','histBtn','reporteBtn','prodBtn','cfgBtn','agendaBtn'];
-  var ORDEN_NOMBRES = {nuevaBtn:'Nueva', histBtn:'Historial', reporteBtn:'Reporte',
-    prodBtn:'Productos', cfgBtn:'Configuración', agendaBtn:'Agendar Pedido'};
 
   function ordenBotonesActual(){
     try{
@@ -4073,24 +4240,10 @@ window.addEventListener('load', async ()=>{
     });
   }
 
-  function renderOrdenEditor(){
-    var cont = document.getElementById('ordenBotonesLista');
-    if(!cont) return;
-    var orden = ordenBotonesActual(), html='';
-    orden.forEach(function(id, i){
-      html += '<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:#fff;'+
-        'border:1px solid #e2e8f0;border-radius:8px;margin-bottom:6px">'+
-        '<span style="flex:1;font-size:12.5px;font-weight:600;color:var(--text)">'+(i+1)+'. '+ORDEN_NOMBRES[id]+'</span>'+
-        '<button type="button" onclick="srMoverBoton(\''+id+'\',-1)" '+(i===0?'disabled':'')+
-        ' style="width:30px;height:30px;border:1px solid #e2e8f0;background:'+(i===0?'#f1f5f9':'#fff')+
-        ';border-radius:6px;cursor:'+(i===0?'default':'pointer')+'">▲</button>'+
-        '<button type="button" onclick="srMoverBoton(\''+id+'\',1)" '+(i===orden.length-1?'disabled':'')+
-        ' style="width:30px;height:30px;border:1px solid #e2e8f0;background:'+(i===orden.length-1?'#f1f5f9':'#fff')+
-        ';border-radius:6px;cursor:'+(i===orden.length-1?'default':'pointer')+'">▼</button>'+
-        '</div>';
-    });
-    cont.innerHTML = html;
-  }
+  // Se conserva vacía por compatibilidad: otras partes del código todavía
+  // la llaman (protegidas con typeof==='function'), pero ya no hay lista
+  // que pintar — el editor ahora es arrastrar los botones mismos.
+  function renderOrdenEditor(){}
 
   window.aplicarOrdenBotones = aplicarOrdenBotones;
   window.renderOrdenEditor = renderOrdenEditor;
@@ -4099,21 +4252,74 @@ window.addEventListener('load', async ()=>{
   window.srGuardarOrdenBotones = function(orden){
     try{ localStorage.setItem('ricchary_orden_botones', JSON.stringify(orden)); }catch(e){}
     aplicarOrdenBotones(orden);
-    renderOrdenEditor();
     return orden;
-  };
-
-  window.srMoverBoton = function(id, dir){
-    var orden = ordenBotonesActual();
-    var i = orden.indexOf(id), j = i+dir;
-    if(i<0 || j<0 || j>=orden.length) return;
-    var tmp=orden[i]; orden[i]=orden[j]; orden[j]=tmp;
-    window.srGuardarOrdenBotones(orden);
   };
 
   window.srRestaurarOrdenBotones = function(){
     window.srGuardarOrdenBotones(ORDEN_DEFECTO.slice());
   };
+
+  // ── arrastrar manteniendo presionado, sobre la barra real ──────
+  (function initArrastrarBotones(){
+    var cont = document.getElementById('topActionBar');
+    if(!cont) return;
+    var ESPERA_MS = 420, UMBRAL_MOV = 10;
+    var pressTimer = null, dragging = null, startX = 0, startY = 0, justDragged = false;
+
+    function hijoDirecto(el){
+      while(el && el.parentElement !== cont) el = el.parentElement;
+      return (el && el.parentElement === cont) ? el : null;
+    }
+    function limpiar(){
+      clearTimeout(pressTimer);
+      if(dragging) dragging.classList.remove('btn-arrastrando');
+      dragging = null;
+    }
+
+    cont.addEventListener('pointerdown', function(e){
+      var hijo = hijoDirecto(e.target);
+      if(!hijo) return;
+      startX = e.clientX; startY = e.clientY;
+      clearTimeout(pressTimer);
+      pressTimer = setTimeout(function(){
+        dragging = hijo;
+        hijo.classList.add('btn-arrastrando');
+        if(navigator.vibrate){ try{ navigator.vibrate(25); }catch(err){} }
+      }, ESPERA_MS);
+    });
+
+    cont.addEventListener('pointermove', function(e){
+      if(!dragging){
+        if(Math.abs(e.clientX-startX)>UMBRAL_MOV || Math.abs(e.clientY-startY)>UMBRAL_MOV) clearTimeout(pressTimer);
+        return;
+      }
+      e.preventDefault();
+      var sobre = hijoDirecto(document.elementFromPoint(e.clientX, e.clientY));
+      if(sobre && sobre!==dragging){
+        var rect = sobre.getBoundingClientRect();
+        var antes = e.clientX < rect.left + rect.width/2;
+        cont.insertBefore(dragging, antes ? sobre : sobre.nextSibling);
+      }
+    }, {passive:false});
+
+    function soltar(){
+      clearTimeout(pressTimer);
+      if(dragging){
+        var nuevoOrden = Array.prototype.map.call(cont.children, function(b){ return b.id; });
+        window.srGuardarOrdenBotones(nuevoOrden);
+        justDragged = true;
+        setTimeout(function(){ justDragged=false; }, 60);
+      }
+      limpiar();
+    }
+    cont.addEventListener('pointerup', soltar);
+    cont.addEventListener('pointercancel', limpiar);
+
+    // Evita que el "tap" que termina un arrastre real dispare el clic del botón
+    cont.addEventListener('click', function(e){
+      if(justDragged){ e.stopPropagation(); e.preventDefault(); }
+    }, true);
+  })();
 
   // ══════════════════════════════════════════════════════════════
   // IMPORTAR GASTOS DEL SRI (.txt de "Comprobantes electrónicos recibidos")
@@ -4565,13 +4771,17 @@ window.addEventListener('load', async ()=>{
       if(h && h.textContent.indexOf('Escuchando')===0) h.textContent='';
     };
     recog.onresult=function(ev){
+      // Recorre TODOS los resultados desde el inicio (no solo desde ev.resultIndex):
+      // en Android, resultIndex no siempre marca de forma confiable dónde empieza
+      // lo nuevo, y confiar en él + sumar con "+=" duplicaba palabras. Al recalcular
+      // el texto final completo en cada evento (en vez de acumularlo), el resultado
+      // siempre refleja lo que Android ya reportó, sin sumarlo dos veces.
       var fin='', prov='';
-      for(var i=ev.resultIndex;i<ev.results.length;i++){
+      for(var i=0;i<ev.results.length;i++){
         var r=ev.results[i];
-        if(r.isFinal) fin+=r[0].transcript; else prov+=r[0].transcript;
+        if(r.isFinal) fin+=r[0].transcript+' '; else prov+=r[0].transcript;
       }
-      if(fin) baseTexto += fin+' ';
-      $('vozTxt').value = (baseTexto+prov).replace(/\s+/g,' ').trim();
+      $('vozTxt').value = (baseTexto+fin+prov).replace(/\s+/g,' ').trim();
     };
   })();
 
@@ -4588,18 +4798,36 @@ window.addEventListener('load', async ()=>{
   /* ---------- Interpretar y previsualizar ---------- */
   var cliente=null;
   var vozModoGasto=false;
+  var vozModoAuto=false;
   // Quita las muletillas de gasto ("agrega a gastos", "anota un gasto de", "gasto de")
   // y separa concepto + monto reutilizando el mismo extractor de precios que
   // ya usa el intérprete de pedidos (sacarPrecio), para no duplicar esa lógica.
-  function srInterpretarGasto(texto){
-    var t = limpiar(texto).replace(/(\d),(\d{1,2})(?!\d)/g, '$1·$2');
-    var patronMuletilla = new RegExp(
+  function patronMuletillaGasto(){
+    return new RegExp(
       '^(?:por\\s+favor\\s+|porfa\\s+)?(?:agrega(?:me)?|agregar|anota(?:me)?|anotar|' +
       'apunta(?:me)?|apuntar|registra(?:me)?|registrar|pon(?:me)?|a[n\u00f1]ade(?:me)?|a[n\u00f1]adir)?' +
       '\\s*(?:a\\s+)?(?:los\\s+)?gastos?\\s*(?:de\\s*)?'
     );
-    t = t.replace(patronMuletilla, '');
+  }
+  // ¿la frase menciona "gasto(s)" cerca del inicio? Usado por el dictado
+  // rápido del inicio para decidir solo si es un gasto o un ítem de pedido.
+  function esFraseDeGasto(texto){
+    return patronMuletillaGasto().test(limpiar(texto));
+  }
+  function srInterpretarGasto(texto){
+    var t = limpiar(texto).replace(/(\d),(\d{1,2})(?!\d)/g, '$1·$2');
+    t = t.replace(patronMuletillaGasto(), '');
     var r = sacarPrecio(t);
+    // Respaldo SOLO para gastos: "100 gorras" (número primero, sin palabra de
+    // precio ni moneda) — sacarPrecio no lo toma porque en un PEDIDO un número
+    // al inicio es cantidad, no precio; en un gasto no existe esa ambigüedad.
+    if(r.precio==null){
+      var m = t.trim().match(/^([\d.,·]+)\s+(.+)$/);
+      if(m){
+        var p = aPrecio(m[1]);
+        if(p!==null && p>0) r = {precio:p, resto:m[2]};
+      }
+    }
     var concepto = String(r.resto||'').replace(/·/g,'.').replace(/\s+/g,' ').trim();
     concepto = concepto.replace(/^de\s+/,'').replace(/\s+de$/,'').trim();
     if(concepto) concepto = concepto.charAt(0).toUpperCase()+concepto.slice(1);
@@ -4607,6 +4835,7 @@ window.addEventListener('load', async ()=>{
   }
 
   var gastoDictado = {concepto:'', monto:null};
+  var ultimoTextoDictado = '';
 
   window.vozPintarGasto=function(){
     var c=$('vozResultado'); if(!c) return;
@@ -4622,12 +4851,48 @@ window.addEventListener('load', async ()=>{
         '<input class="p" type="number" step="0.01" value="'+(gastoDictado.monto!=null?Number(gastoDictado.monto).toFixed(2):'')+'" '+
           'placeholder="Monto" onchange="gastoDictado.monto=parseFloat(this.value)||0">'+
       '</div></div>';
-    if(gastoDictado.monto==null) h+='<div class="voz-extra">No detecté el monto — complétalo antes de agregar.</div>';
+    if(gastoDictado.monto==null){
+      h+='<div class="voz-extra">No detecté el monto — complétalo antes de agregar, o prueba con IA.</div>';
+      h+='<button class="voz-btn sec" style="width:100%;margin-bottom:8px" onclick="vozProbarIA()">🤖 Intentar con IA</button>';
+    }
     h+='<div class="voz-btnrow">'+
        '<button class="voz-btn sec" onclick="vozLimpiar()">Empezar de nuevo</button>'+
        '<button class="voz-btn" onclick="vozAgregarGasto()">✓ Agregar a gastos</button>'+
        '</div>';
     c.innerHTML=h;
+  };
+
+  // Respaldo de IA (opcional): solo actúa si el usuario configuró su propia
+  // función en la nube en Configuración. Sin eso, no cuesta nada ni se conecta
+  // a ningún lado — el reconocimiento local sigue siendo el camino principal.
+  window.vozProbarIA=async function(){
+    var url = (localStorage.getItem('cfg_ia_url')||'').trim();
+    if(!url){
+      alert('No hay una función de IA configurada.\n\nEsto es opcional: en Configuración → "Reconocimiento por IA" puedes pegar la URL de tu propia función, si tienes una.');
+      return;
+    }
+    var c=$('vozResultado');
+    if(c) c.innerHTML='<div class="voz-vacio">🤖 Consultando IA…</div>';
+    try{
+      var res = await fetch(url, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({texto: ultimoTextoDictado})
+      });
+      var data = await res.json();
+      if(data && (data.concepto || data.monto!=null)){
+        gastoDictado = {
+          concepto: data.concepto ? String(data.concepto).charAt(0).toUpperCase()+String(data.concepto).slice(1) : gastoDictado.concepto,
+          monto: data.monto!=null ? parseFloat(data.monto) : gastoDictado.monto
+        };
+        vozPintarGasto();
+      }else{
+        vozPintarGasto();
+        alert('La IA no pudo interpretar el gasto. Complétalo a mano.');
+      }
+    }catch(e){
+      vozPintarGasto();
+      alert('No se pudo consultar la IA. Revisa la URL en Configuración o tu conexión.');
+    }
   };
 
   window.vozAgregarGasto=function(){
@@ -4647,6 +4912,7 @@ window.addEventListener('load', async ()=>{
 
   window.vozAbrirGasto=function(){
     vozModoGasto = true;
+    vozModoAuto = false;
     vozLimpiar();
     var tit=$('vozTitulo'), sub=$('vozSub'), ej=$('vozEj'), tx=$('vozTxt');
     if(tit) tit.textContent='🎤 Dictar un gasto';
@@ -4657,8 +4923,24 @@ window.addEventListener('load', async ()=>{
     $('vozModal').classList.add('open');
   };
 
+  // Dictado rápido desde el inicio: un solo botón, la app decide sola
+  // si es un gasto o un ítem de pedido nuevo, según lo que digas.
+  window.vozAbrirAuto=function(){
+    vozModoAuto = true;
+    vozModoGasto = false;
+    vozLimpiar();
+    var tit=$('vozTitulo'), sub=$('vozSub'), ej=$('vozEj'), tx=$('vozTxt');
+    if(tit) tit.textContent='🎤 Dictado rápido';
+    if(sub) sub.textContent='Di un gasto o el primer ítem de un pedido — la app detecta cuál es.';
+    if(ej) ej.innerHTML='Ejemplos: <b>«gasto 100 gorras»</b> (gasto) · <b>«20 gorras bordadas a 2.50»</b> (pedido nuevo).';
+    if(tx) tx.placeholder='Ej: gasto 100 gorras — o — 20 gorras bordadas a 2.50';
+    if(!recog && $('vozHint')) $('vozHint').textContent='Tu navegador no permite dictado. Escribe aquí abajo.';
+    $('vozModal').classList.add('open');
+  };
+
   function vozRestaurarModoNormal(){
     vozModoGasto = false;
+    vozModoAuto = false;
     var tit=$('vozTitulo'), sub=$('vozSub'), ej=$('vozEj'), tx=$('vozTxt');
     if(tit) tit.textContent='🎤 Dictar o pegar pedido';
     if(sub) sub.textContent='Dicta el pedido o pega el mensaje que te llegó por WhatsApp. La app lo separa en ítems y tú revisas antes de agregarlo.';
@@ -4670,7 +4952,18 @@ window.addEventListener('load', async ()=>{
 
   window.vozInterpretar=function(){
     var t=($('vozTxt')||{}).value||'';
-    if(!t.trim()){ alert('Dicta o escribe '+(vozModoGasto?'el gasto':'el pedido')+' primero.'); return; }
+    ultimoTextoDictado = t;
+    if(!t.trim()){ alert('Dicta o escribe primero.'); return; }
+    if(vozModoAuto){
+      if(esFraseDeGasto(t)){
+        gastoDictado = srInterpretarGasto(t);
+        vozPintarGasto();
+        return;
+      }
+      // No mencionó "gasto": se interpreta como un ítem de pedido nuevo.
+      if(typeof window.nuevaCotizacion==='function') window.nuevaCotizacion();
+      var sp=$('splashScreen'); if(sp) sp.classList.add('hidden');
+    }
     if(vozModoGasto){
       gastoDictado = srInterpretarGasto(t);
       vozPintarGasto();
@@ -4798,6 +5091,7 @@ window.addEventListener('load', async ()=>{
 
 </script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
 /* ═══════════════════════════════════════════════════════════════
    V2 · CUENTA / NUBE (Supabase)
@@ -5479,6 +5773,15 @@ window.addEventListener('load', function(){
     <button class="modal-close" id="admProdClose">✕</button>
     <div class="cat-sub" id="catAdmSub"></div>
     <div id="catTope"></div>
+    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;margin-bottom:14px">
+      <div style="font-size:12.5px;font-weight:700;color:var(--brand);margin-bottom:6px">📋 Cargar productos de tu oficio</div>
+      <div style="font-size:11.5px;color:#64748b;margin-bottom:8px">Arranca con una lista lista de productos y servicios comunes — edítalos o bórralos luego.</div>
+      <div style="display:flex;gap:8px">
+        <select id="catOficioSel" style="flex:1;padding:9px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;background:#fff"></select>
+        <button class="cat-btn" onclick="catImportarOficio()" style="white-space:nowrap">Importar</button>
+      </div>
+      <div id="catOficioMsg" style="display:none;font-size:11.5px;margin-top:8px;padding:8px;border-radius:6px;line-height:1.5"></div>
+    </div>
     <div class="cat-form">
       <input type="hidden" id="cfId">
       <label class="full">Producto<input id="cfProd" placeholder="Ej: Gorra bordada"></label>
