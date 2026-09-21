@@ -952,12 +952,15 @@ body.pidiendo-impuesto .claim-sep{margin:6px auto}
       <div class="onb-slide" data-slide="1">
         <h2>📋 Todo en un solo lugar</h2>
         <ul class="onb-list">
-          <li>📝 Cotiza sin catálogos previos — escribe libremente</li>
+          <li>📝 Cotiza escribiendo libremente o dictando el pedido</li>
           <li>🧮 Calcula IVA, abonos y saldos automáticamente</li>
           <li>📲 Envía la proforma por WhatsApp en segundos</li>
           <li>📅 Agenda entregas con recordatorios</li>
           <li>✍️ Firma digital del cliente y representante</li>
           <li>🖨️ Genera PDF profesional con tu logo</li>
+          <li>📦 Catálogo de productos, con tu costo y ganancia</li>
+          <li>💰 Gastos: a mano, importados del SRI o por voz</li>
+          <li>📊 Reporte de ventas, gastos y ganancia real</li>
         </ul>
       </div>
 
@@ -1036,7 +1039,7 @@ body.pidiendo-impuesto .claim-sep{margin:6px auto}
         <h2>¡Todo listo!</h2>
         <p>Configura tu empresa y logo en ⚙️ Configuración. Empieza a cotizar ahora mismo.</p>
         <p style="font-size:12px;color:#94a3b8;margin-top:14px">💡 Puedes volver a ver esta guía cuando quieras desde Configuración → "Ver guía rápida"</p>
-        <a href="https://richardpeluche.github.io/ricchary/RICCHARY_Manual_Usuario.pdf" target="_blank" rel="noopener"
+        <a href="https://richardpeluche.github.io/ricchary-v2/RICCHARY_V2_Manual_Usuario.pdf" target="_blank" rel="noopener"
           style="display:inline-flex;align-items:center;gap:8px;margin-top:16px;background:var(--brand);color:#fff;
           text-decoration:none;font-weight:700;font-size:14px;padding:13px 24px;border-radius:10px;
           box-shadow:0 4px 14px rgba(21,101,192,.32)">📄 Descargar manual de usuario (PDF)</a>
@@ -1846,6 +1849,7 @@ function repetirCotizacion(cot){
     '• Sin abono, en estado «Cotizado» y sin factura\n\n'+
     'La proforma N° '+cot.num+' queda intacta.')) return;
   cargarCotizacion(cot);
+  window._editandoExistente = false; // repetir SÍ debe poder tomar el número nuevo
   setOrdenActual(nuevo);
   const fF=document.getElementById('fFecha'); if(fF) fF.value = new Date().toISOString().slice(0,10);
   const fA=document.getElementById('fAbono'); if(fA) fA.value='';
@@ -1864,6 +1868,7 @@ function showHistSaveBadge(){
 
 // Carga una cotización del historial al formulario
 function cargarCotizacion(cot){
+  window._editandoExistente = true;
   const _dO=document.getElementById('docOrden'); if(_dO) _dO.value = cot.num||'';
   if(window.marcarBotonFacturado) setTimeout(window.marcarBotonFacturado, 50);
   document.getElementById('fFecha').value = cot.fecha||'';
@@ -2931,6 +2936,7 @@ document.getElementById('printBtn').onclick=()=>{ guardarCotizacion(); window.pr
 
 // ===== NUEVA COTIZACIÓN (limpia el formulario sin cerrar la app) =====
 window.nuevaCotizacion = function(){
+  window._editandoExistente = false;
   const hayDatos = (document.getElementById('fCliente')?.value||'').trim()
                 || (document.getElementById('itemsBody')?.children.length||0) > 0;
   if(hayDatos && !confirm('¿Empezar una cotización nueva?\n\nSe limpiará el formulario. Asegúrate de haber guardado la actual.')) return;
@@ -3216,7 +3222,11 @@ function getNextOrden(){
   let last = parseInt(localStorage.getItem('ricchary_last_orden')||'100', 10);
   return last + 1;
 }
+window._editandoExistente = false; // true mientras hay una cotización YA guardada cargada para editar
 function setOrdenActual(n){
+  // No pisar el número si el usuario está editando una cotización existente:
+  // una actualización en segundo plano (login, Apps Script) no debe cambiarlo bajo sus manos.
+  if(window._editandoExistente) return;
   const el = document.getElementById('docOrden');
   if(el) el.value = String(n);
   document.getElementById('docOrden')?.setAttribute('data-num', n);
