@@ -749,6 +749,7 @@ body.pidiendo-impuesto .claim-sep{margin:6px auto}
 }
 #topActionBar svg, #topActionBar img{ pointer-events:none; -webkit-user-drag:none; }
 #topActionBar.bar-editando > *:not(.btn-arrastrando){ opacity:.75; }
+.btn-fantasma{opacity:.35}
 .btn-arrastrando{
   transform:scale(1.06);
   box-shadow:0 6px 18px rgba(0,0,0,.28);
@@ -756,6 +757,17 @@ body.pidiendo-impuesto .claim-sep{margin:6px auto}
   z-index:5;
   position:relative;
 }
+/* ══ Ajustes visuales 22-sep ══ */
+.doc-no .fact-row{flex-basis:100%;display:flex;justify-content:flex-end}
+.doc-no{justify-content:flex-end}                       /* Orden N° alineado al borde derecho de Facturar */
+#docOrden{color:#D35400 !important;font-size:16px !important}  /* número de orden en naranja, fijo en todos los temas */
+.fact-btn, .fact-btn:hover, .fact-btn:focus{
+  background:#1B2A4A !important; color:#fff !important; border:0 !important;   /* azul navy fijo, no cambia con el tema */
+  margin-left:0 !important; box-shadow:0 2px 8px rgba(27,42,74,.28) !important;
+}
+.fact-btn.facturado{background:#16a34a !important}
+.ruc-row input{margin:0}
+.add-row-wrap{flex-direction:column;align-items:flex-start}
 </style>
 
 </head><body>
@@ -1130,9 +1142,9 @@ body.pidiendo-impuesto .claim-sep{margin:6px auto}
   <div class="proforma-header-row">
     <div style="font-size:12px;font-weight:700;color:var(--brand);text-transform:uppercase;letter-spacing:1px">Información del Cliente</div>
     <div class="doc-no">
+      <div class="fact-row"><button type="button" id="facturarBtn" class="fact-btn" title="Generar factura electrónica (SRI)">📄 Facturar</button></div>
       <span class="badge">Orden N°</span>
       <input id="docOrden" readonly style="width:90px;background:#f1f5f9;font-weight:700;text-align:center;cursor:default">
-      <button type="button" id="facturarBtn" class="fact-btn" title="Generar factura electrónica (SRI)">📄 Facturar</button>
     </div>
   </div>
   <div class="form-grid-2">
@@ -1142,9 +1154,9 @@ body.pidiendo-impuesto .claim-sep{margin:6px auto}
     <div class="form-group"><label>Teléfono</label><input id="fTelefono" placeholder=""></div>
     <div class="form-group"><label>Dirección</label><input id="fDireccion" placeholder=""></div>
     <div class="form-group"><label>CI / RUC</label>
-      <div style="display:flex;gap:5px;align-items:center;width:100%">
+      <div class="ruc-row" style="display:flex;gap:5px;align-items:stretch;width:100%">
         <input id="fCedula" placeholder="" style="flex:1;min-width:0">
-        <button type="button" id="btnBuscarRuc" title="Consultar en el SRI y autocompletar" style="flex:0 0 auto;background:var(--brand);color:#fff;border:0;border-radius:8px;width:40px;height:38px;font-size:16px;cursor:pointer;padding:0;line-height:1">🔍</button>
+        <button type="button" id="btnBuscarRuc" title="Consultar en el SRI y autocompletar" style="flex:0 0 auto;background:var(--brand);color:#fff;border:0;border-radius:8px;width:40px;font-size:15px;cursor:pointer;padding:0;line-height:1">🔍</button>
       </div>
       <div id="rucStatus" style="font-size:11px;margin-top:4px;display:none;line-height:1.4;word-break:break-word"></div>
     </div>
@@ -1174,9 +1186,6 @@ body.pidiendo-impuesto .claim-sep{margin:6px auto}
     </button>
     <button class="add-row-btn add-cat-btn" id="addCatBtn" title="Agregar otro producto del catálogo">
       <svg class="ic" aria-hidden="true"><use href="#ic-package"></use></svg> Desde catálogo
-    </button>
-    <button class="add-row-btn" id="vozBtn" title="Dictar el pedido o pegar el mensaje de WhatsApp">
-      🎤 Dictar / pegar
     </button>
   </div>
   <div class="totals-block">
@@ -4271,7 +4280,36 @@ window.addEventListener('load', async ()=>{
   };
 
   // ── arrastrar manteniendo presionado, sobre la barra real ──────
-  (function initArrastrarBotones(){
+  // En Android el arrastre propio con Pointer Events quedaba trabado: el sistema
+  // se apropia del gesto de "mantener presionado". SortableJS resuelve eso con
+  // eventos táctiles y retardo solo en pantallas táctiles. El código propio de
+  // abajo queda como respaldo si la librería no carga (p.ej. sin conexión).
+  window.addEventListener('load', function(){
+    var cont = document.getElementById('topActionBar');
+    if(!cont) return;
+    if(typeof window.Sortable === 'function'){
+      window._ordenConSortable = window.Sortable.create(cont, {
+        animation: 160,
+        delay: 300, delayOnTouchOnly: true, touchStartThreshold: 6,
+        ghostClass: 'btn-fantasma', chosenClass: 'btn-arrastrando',
+        onStart: function(){ cont.classList.add('bar-editando'); if(navigator.vibrate){ try{navigator.vibrate(30);}catch(e){} } },
+        onEnd: function(){
+          cont.classList.remove('bar-editando');
+          cont._recienMovido = true; setTimeout(function(){ cont._recienMovido=false; }, 350);
+          var orden = Array.prototype.map.call(cont.children, function(b){ return b.id; })
+            .filter(function(id){ return ORDEN_DEFECTO.indexOf(id)>=0; });
+          if(orden.length===ORDEN_DEFECTO.length) window.srGuardarOrdenBotones(orden);
+        }
+      });
+      cont.addEventListener('contextmenu', function(e){ e.preventDefault(); });
+      // Que soltar un botón arrastrado no lo abra
+      cont.addEventListener('click', function(e){ if(cont._recienMovido){ e.stopPropagation(); e.preventDefault(); } }, true);
+      return;
+    }
+    initArrastrarBotones();
+  });
+
+  function initArrastrarBotones(){
     var cont = document.getElementById('topActionBar');
     if(!cont) return;
     var ESPERA_MS = 380, UMBRAL_MOV = 12;
@@ -4352,7 +4390,7 @@ window.addEventListener('load', async ()=>{
     cont.addEventListener('click', function(e){
       if(justDragged){ e.stopPropagation(); e.preventDefault(); }
     }, true);
-  })();
+  }
 
   // ══════════════════════════════════════════════════════════════
   // IMPORTAR GASTOS DEL SRI (.txt de "Comprobantes electrónicos recibidos")
@@ -5125,6 +5163,7 @@ window.addEventListener('load', async ()=>{
 </script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
 <script>
 /* ═══════════════════════════════════════════════════════════════
    V2 · CUENTA / NUBE (Supabase)
