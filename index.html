@@ -741,7 +741,14 @@ body.pidiendo-impuesto .claim-sep{margin:6px auto}
   background:#22c55e;color:#062e14;font:700 14px/1 system-ui,sans-serif}
 @media(max-width:760px){#swBar{left:8px;right:8px;transform:none;justify-content:center}}
 /* ══ Arrastrar botones de la barra superior (mantener presionado) ══ */
-#topActionBar > *{ touch-action:none; }
+#topActionBar > *{
+  touch-action:none;
+  -webkit-touch-callout:none;   /* evita el menú nativo (copiar/compartir) al mantener presionado en iOS */
+  -webkit-user-select:none; user-select:none;   /* evita que el texto del botón se seleccione */
+  -webkit-tap-highlight-color:transparent;
+}
+#topActionBar svg, #topActionBar img{ pointer-events:none; -webkit-user-drag:none; }
+#topActionBar.bar-editando > *:not(.btn-arrastrando){ opacity:.75; }
 .btn-arrastrando{
   transform:scale(1.06);
   box-shadow:0 6px 18px rgba(0,0,0,.28);
@@ -4267,59 +4274,81 @@ window.addEventListener('load', async ()=>{
   (function initArrastrarBotones(){
     var cont = document.getElementById('topActionBar');
     if(!cont) return;
-    var ESPERA_MS = 420, UMBRAL_MOV = 10;
-    var pressTimer = null, dragging = null, startX = 0, startY = 0, justDragged = false;
+    var ESPERA_MS = 380, UMBRAL_MOV = 12;
+    var pressTimer = null, dragging = null, pid = null, startX = 0, startY = 0, justDragged = false;
 
     function hijoDirecto(el){
       while(el && el.parentElement !== cont) el = el.parentElement;
       return (el && el.parentElement === cont) ? el : null;
     }
-    function limpiar(){
-      clearTimeout(pressTimer);
-      if(dragging) dragging.classList.remove('btn-arrastrando');
-      dragging = null;
+    function guardarActual(){
+      var orden = Array.prototype.map.call(cont.children, function(b){ return b.id; })
+        .filter(function(id){ return ORDEN_DEFECTO.indexOf(id)>=0; });
+      if(orden.length===ORDEN_DEFECTO.length) window.srGuardarOrdenBotones(orden);
+    }
+    function terminar(guardar){
+      clearTimeout(pressTimer); pressTimer=null;
+      if(dragging){
+        dragging.classList.remove('btn-arrastrando');
+        cont.classList.remove('bar-editando');
+        if(guardar){ guardarActual(); }
+        justDragged = true; setTimeout(function(){ justDragged=false; }, 350);
+      }
+      try{ if(pid!=null && cont.hasPointerCapture && cont.hasPointerCapture(pid)) cont.releasePointerCapture(pid); }catch(e){}
+      dragging = null; pid = null;
     }
 
     cont.addEventListener('pointerdown', function(e){
+      if(e.pointerType==='mouse' && e.button!==0) return;
       var hijo = hijoDirecto(e.target);
       if(!hijo) return;
-      startX = e.clientX; startY = e.clientY;
+      startX = e.clientX; startY = e.clientY; pid = e.pointerId;
       clearTimeout(pressTimer);
       pressTimer = setTimeout(function(){
         dragging = hijo;
         hijo.classList.add('btn-arrastrando');
-        if(navigator.vibrate){ try{ navigator.vibrate(25); }catch(err){} }
+        cont.classList.add('bar-editando');
+        // Capturar el puntero en la barra: los movimientos siguen llegando
+        // aunque el dedo salga del botón o de la barra.
+        try{ cont.setPointerCapture(pid); }catch(err){}
+        if(navigator.vibrate){ try{ navigator.vibrate(30); }catch(err){} }
       }, ESPERA_MS);
     });
 
     cont.addEventListener('pointermove', function(e){
       if(!dragging){
-        if(Math.abs(e.clientX-startX)>UMBRAL_MOV || Math.abs(e.clientY-startY)>UMBRAL_MOV) clearTimeout(pressTimer);
+        if(pressTimer && (Math.abs(e.clientX-startX)>UMBRAL_MOV || Math.abs(e.clientY-startY)>UMBRAL_MOV)){
+          clearTimeout(pressTimer); pressTimer=null;
+        }
         return;
       }
       e.preventDefault();
-      var sobre = hijoDirecto(document.elementFromPoint(e.clientX, e.clientY));
-      if(sobre && sobre!==dragging){
-        var rect = sobre.getBoundingClientRect();
-        var antes = e.clientX < rect.left + rect.width/2;
-        cont.insertBefore(dragging, antes ? sobre : sobre.nextSibling);
+      // Con la captura activa e.target es la barra: se busca qué botón hay debajo del dedo
+      var sobre = null;
+      Array.prototype.some.call(cont.children, function(b){
+        if(b===dragging) return false;
+        var r = b.getBoundingClientRect();
+        if(e.clientX>=r.left && e.clientX<=r.right && e.clientY>=r.top && e.clientY<=r.bottom){ sobre=b; return true; }
+        return false;
+      });
+      if(sobre){
+        var r = sobre.getBoundingClientRect();
+        var antes = e.clientX < r.left + r.width/2;
+        var ref = antes ? sobre : sobre.nextSibling;
+        if(ref!==dragging) cont.insertBefore(dragging, ref);
       }
     }, {passive:false});
 
-    function soltar(){
-      clearTimeout(pressTimer);
-      if(dragging){
-        var nuevoOrden = Array.prototype.map.call(cont.children, function(b){ return b.id; });
-        window.srGuardarOrdenBotones(nuevoOrden);
-        justDragged = true;
-        setTimeout(function(){ justDragged=false; }, 60);
-      }
-      limpiar();
-    }
-    cont.addEventListener('pointerup', soltar);
-    cont.addEventListener('pointercancel', limpiar);
+    cont.addEventListener('pointerup', function(){ terminar(true); });
+    // Si el sistema cancela el gesto en pleno arrastre, se conserva el orden que ya se ve
+    cont.addEventListener('pointercancel', function(){ terminar(!!dragging); });
+    cont.addEventListener('lostpointercapture', function(){ if(dragging) terminar(true); });
 
-    // Evita que el "tap" que termina un arrastre real dispare el clic del botón
+    // Menú nativo al mantener presionado y arrastre nativo de imágenes: fuera
+    cont.addEventListener('contextmenu', function(e){ e.preventDefault(); });
+    cont.addEventListener('dragstart', function(e){ e.preventDefault(); });
+
+    // Que el toque con el que se suelta un arrastre no abra el botón
     cont.addEventListener('click', function(e){
       if(justDragged){ e.stopPropagation(); e.preventDefault(); }
     }, true);
