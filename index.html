@@ -1238,7 +1238,6 @@ body.pidiendo-impuesto .claim-sep{margin:6px auto}
   <div class="footer-notes">
     <div style="font-size:13px;font-weight:600;margin-bottom:6px">🚚 Tiempo de entrega: <input id="fDiasEntrega" type="number" min="1" max="365" value="30" style="width:55px;text-align:center;font-weight:700;padding:2px 4px;border:0.5px solid var(--border);border-radius:4px"> días laborables</div>
     <textarea id="fNotas" style="height: 103px;">Abono 50% al confirmar el pedido. El plazo de entrega corre a partir de la confirmación del pedido y aprobación del diseño.
-En caso de depósito o transferencia a la Cta. Ahorros 4720698400 Banco Pichincha a nombre de Ricardo Morales cédula 171631236-6.
 Este documento es de carácter contrato cliente-ofertador, que firmado constituye un documento de COMPROMISO.</textarea>
   </div>
 
@@ -1371,12 +1370,12 @@ Este documento es de carácter contrato cliente-ofertador, que firmado constituy
 
     <div class="cfg-group">
       <label>🏢 Nombre de la empresa</label>
-      <input type="text" id="cfgEmpresa" placeholder="RICCHARY Servicios Personalizados">
+      <input type="text" id="cfgEmpresa" placeholder="Nombre de tu empresa">
     </div>
 
     <div class="cfg-group">
       <label>👤 Representante / Responsable (firma)</label>
-      <input type="text" id="cfgRepresentante" placeholder="Ej: Ricardo Morales — CEO">
+      <input type="text" id="cfgRepresentante" placeholder="Ej: Juan Pérez — Gerente">
     </div>
 
     <div class="cfg-group">
@@ -3591,31 +3590,14 @@ window.addEventListener('load', async ()=>{
   var catFiltro='';
 
   /* ══════════════════════════════════════════════════════════════════
-     SEMILLA DE PRUEBA · BORRAR ESTE BLOQUE ANTES DE PUBLICAR
+     SEMILLA DE PRUEBA · VACÍA (versión de producción)
      Para dejar el catálogo virgen: deja SEMILLA=[] (vacío).
      Al cambiar SEED_VER se vuelven a sembrar los productos.
      La descripción va VACÍA a propósito: ese texto viaja tal cual a la
      factura electrónica, así que no debe llevar notas internas.
      ══════════════════════════════════════════════════════════════════ */
   var VKEY='ricchary_seed_ver', SEED_VER='2026-08-07-catalogo16';
-  var SEMILLA=[
-   ['g1','Gorra Trucker Malla Simple','Gorras',2.00],
-   ['g2','Gorra Malla Premium','Gorras',5.50],
-   ['g3','Gorra Gabardina Premium','Gorras',5.50],
-   ['g4','Gorra Gabardina / Algodón','Gorras',2.50],
-   ['c1','Camiseta Algodón Jersey','Polos & Camisetas',8.00],
-   ['c2','Polo Unicolor Corporativo','Polos & Camisetas',10.00],
-   ['c3','Polo Combinado','Polos & Camisetas',12.00],
-   ['j1','Chaqueta Promo Estándar','Chaquetas Universitarias',23.00],
-   ['j2','Chaqueta con Capucha','Chaquetas Universitarias',24.50],
-   ['j3','Chaqueta Diseño Especial','Chaquetas Universitarias',33.00],
-   ['j4','Chaqueta Forro Interno Personalizado','Chaquetas Universitarias',35.00],
-   ['j5','Chaqueta Completa + Capucha','Chaquetas Universitarias',38.00],
-   ['v1','Chaleco Liviano Económico','Chalecos & Chompas',8.50],
-   ['v2','Chaleco Labrado Clima Frío','Chalecos & Chompas',10.50],
-   ['v3','Chaleco Térmico Simple','Chalecos & Chompas',7.00],
-   ['ch1','Chompa Labrada Clima Frío','Chalecos & Chompas',13.00]
-  ];
+  var SEMILLA=[];   // catálogo virgen: cada usuario carga sus productos (o un diccionario de oficio)
   /* ═══════════════════ FIN DE LA SEMILLA ═══════════════════════════ */
 
   /* ══════════════════════════════════════════════════════════════════
