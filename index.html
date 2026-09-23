@@ -960,21 +960,27 @@ body.pidiendo-impuesto .claim-sep{margin:6px auto}
   <div class="onb-box">
     <div class="onb-slides">
 
-      <!-- Slide 1: Bienvenida -->
+      <!-- Slide 1: Bienvenida a la V2 / qué hay de nuevo -->
       <div class="onb-slide active" data-slide="0">
-        <h2>Bienvenido a tu Sistema de Cotizaciones</h2>
-        <p>La forma más rápida de cotizar, enviar por WhatsApp y gestionar tus pedidos — sin complicaciones.</p>
-        <div style="margin-top:16px;text-align:left;background:#eef2ff;border-radius:12px;padding:14px 18px">
+        <div class="onb-badge" style="background:var(--brand);color:#fff">NUEVA VERSIÓN</div>
+        <h2>🎉 Bienvenido a RICCHARY v2</h2>
+        <p>Si ya usabas RICCHARY, esto es lo nuevo. Si es tu primera vez, bienvenido — sigue viendo esta guía.</p>
+        <div style="margin-top:14px;text-align:left;background:#f8fafc;border-radius:12px;padding:16px 18px">
+          <div style="font-size:13px;font-weight:800;color:var(--brand);margin-bottom:10px">✨ ¿Qué hay de nuevo?</div>
+          <ul class="onb-list" style="margin:0">
+            <li>☁️ Cuenta en la nube: inicia sesión con Google, ya no hace falta copiar ninguna URL</li>
+            <li>📦 Catálogo de productos, con tu costo y tu ganancia</li>
+            <li>💰 Gastos: a mano, importados del SRI o por voz</li>
+            <li>📊 Reporte de ventas, gastos y ganancia real</li>
+            <li>🎙️ Dictado por voz, incluso desde la pantalla de inicio</li>
+            <li>📊 Exportar tu cotización a Excel (Pro)</li>
+          </ul>
+        </div>
+        <div style="margin-top:14px;text-align:left;background:#eef2ff;border-radius:12px;padding:14px 18px">
           <div style="font-size:12.5px;font-weight:800;color:var(--brand);margin-bottom:8px">⚙️ Antes de empezar, configura tu perfil:</div>
           <div style="font-size:13px;color:#374151;line-height:1.6">
-            Sube tu <b>logo</b> (si lo tienes) y aparecerá en tus cotizaciones · agrega el <b>nombre del vendedor o representante</b> · — para una presentación más profesional ante tus clientes.
+            Sube tu <b>logo</b> (si lo tienes) y aparecerá en tus cotizaciones · agrega el <b>nombre del vendedor o representante</b> — para una presentación más profesional ante tus clientes.
           </div>
-        </div>
-        <div style="margin-top:14px;text-align:left;background:#f8fafc;border-radius:12px;padding:16px 18px">
-          <div style="font-size:13px;font-weight:800;color:var(--brand);margin-bottom:10px">🚀 Y ahora, con 3 pasos:</div>
-          <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;font-size:13.5px;color:#374151"><span style="background:var(--brand);color:#fff;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px;flex:0 0 auto">1</span> Llena los datos del cliente y los productos</div>
-          <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;font-size:13.5px;color:#374151"><span style="background:var(--brand);color:#fff;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px;flex:0 0 auto">2</span> Toca <b>💾 Guardar</b> para registrarla</div>
-          <div style="display:flex;align-items:center;gap:10px;font-size:13.5px;color:#374151"><span style="background:var(--brand);color:#fff;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px;flex:0 0 auto">3</span> Envíala por <b>WhatsApp</b> con un toque</div>
         </div>
       </div>
 
@@ -2866,8 +2872,10 @@ document.getElementById('excelBtn').onclick = window.exportarExcel;
   function initOnboarding(){
     const ob = document.getElementById('onboarding');
     if(!ob) return;
-    // Solo mostrar la primera vez
-    if(!localStorage.getItem('onboarding_visto')){
+    // Clave PROPIA de la V2 (no 'onboarding_visto'): V1 y V2 comparten dominio y
+    // localStorage, así que quien ya cerró la guía de la V1 igual debe ver esta
+    // — "qué hay de nuevo" — al menos una vez.
+    if(!localStorage.getItem('ricchary_v2_novedades_visto')){
       ob.classList.add('show');
     }
     let actual = 0;
@@ -2891,6 +2899,7 @@ document.getElementById('excelBtn').onclick = window.exportarExcel;
     function cerrar(){
       ob.classList.remove('show');
       localStorage.setItem('onboarding_visto','1');
+      localStorage.setItem('ricchary_v2_novedades_visto','1');
     }
 
     btnNext.onclick = ()=>{ if(actual < total-1) mostrar(actual+1); else cerrar(); };
