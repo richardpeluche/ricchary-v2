@@ -3693,6 +3693,13 @@ window.addEventListener('load', async ()=>{
   }
   function saveProds(a){
     try{ localStorage.setItem(KEY,JSON.stringify(a)); localStorage.setItem(VKEY,SEED_VER); }catch(e){}
+    // catGuardarProd/catToggle/catBorrar/catImportarOficio llaman a esta función
+    // como identificador LOCAL del módulo (no window.saveProds), así que envolverla
+    // desde otro <script> nunca la intercepta. En vez de eso, se avisa por evento:
+    // cualquier módulo interesado (la nube) escucha y sincroniza sin depender del alcance.
+    try{
+      window.dispatchEvent(new CustomEvent('ricchary:catalogo-guardado', {detail:{productos:a}}));
+    }catch(e){}
   }
   function activos(){ return getProds().filter(function(p){ return p.activo!==false; }); }
   function cats(){ var s={}; getProds().forEach(function(p){ if(p.categoria) s[p.categoria]=1; }); return Object.keys(s).sort(); }
@@ -5563,6 +5570,91 @@ window.addEventListener('load', async ()=>{
   }
 
   /* ══════════════════════════════════════════════════════════════
+     CATÁLOGO DE PRODUCTOS → Supabase.
+     catGuardarProd/catToggle/catBorrar/catImportarOficio llaman a
+     saveProds() como identificador LOCAL de su propio módulo — nunca
+     como window.saveProds — así que envolver la función (como se hizo
+     con gastos y cotizaciones) no funciona aquí: esas llamadas jamás
+     pasarían por la versión envuelta. En vez de eso, saveProds() avisa
+     por un evento cada vez que guarda, y aquí se escucha ese evento.
+     ══════════════════════════════════════════════════════════════ */
+  var PMAP_KEY = 'ricchary_productos_nube_map';   // { [idLocal]: idSupabase }
+  function prodsMap(){ try{ return JSON.parse(localStorage.getItem(PMAP_KEY)||'{}'); }catch(e){ return {}; } }
+  function saveProdsMap(m){ try{ localStorage.setItem(PMAP_KEY, JSON.stringify(m)); }catch(e){} }
+
+  window.addEventListener('ricchary:catalogo-guardado', function(ev){
+    syncCatalogo((ev.detail && ev.detail.productos) || []);
+  });
+
+  async function syncCatalogo(productos){
+    var uid = await uidActual();
+    if(!uid) return;
+    var m = prodsMap();
+    var idsActuales = {};
+    productos.forEach(function(p){ idsActuales[String(p.id)] = true; });
+
+    // Lo que estaba mapeado pero ya no existe localmente: se borró → se borra también en la nube
+    var borrarLocales = Object.keys(m).filter(function(idLocal){ return !idsActuales[idLocal]; });
+    for(var i=0;i<borrarLocales.length;i++){
+      try{ await sb.from('productos').delete().eq('user_id', uid).eq('id', m[borrarLocales[i]]); }catch(e){}
+      delete m[borrarLocales[i]];
+    }
+
+    // Altas y ediciones
+    for(var j=0;j<productos.length;j++){
+      var p = productos[j];
+      var fila = {
+        user_id: uid, codigo: p.codigo||'', producto: p.producto||'', categoria: p.categoria||'',
+        descripcion: p.descripcion||'', precio: p.precio!=null?Number(p.precio):null,
+        costo: p.costo!=null?Number(p.costo):null, activo: p.activo!==false
+      };
+      try{
+        if(m[p.id] != null){
+          await sb.from('productos').update(fila).eq('user_id', uid).eq('id', m[p.id]);
+        }else{
+          var res = await sb.from('productos').insert(fila).select('id').single();
+          if(res && !res.error && res.data){ m[p.id] = res.data.id; }
+        }
+      }catch(e){}
+    }
+    saveProdsMap(m);
+  }
+
+  async function nubePullCatalogo(){
+    var uid = await uidActual();
+    if(!uid) return;
+    try{
+      var res = await sb.from('productos').select('*').eq('user_id', uid);
+      if(res && res.error) throw res.error;
+      var locales = [];
+      try{ locales = JSON.parse(localStorage.getItem('ricchary_productos')||'[]'); }catch(e){}
+      var m = prodsMap();
+      var yaTraidos = {}; Object.keys(m).forEach(function(k){ yaTraidos[String(m[k])] = true; });
+      var agregados = false;
+      var filas = res.data || [];
+      for(var i=0;i<filas.length;i++){
+        var row = filas[i];
+        if(yaTraidos[String(row.id)]) continue;
+        var idLocal = Date.now() + i;
+        locales.push({
+          id: idLocal, codigo: row.codigo||'', producto: row.producto||'', categoria: row.categoria||'',
+          descripcion: row.descripcion||'', precio: row.precio, costo: row.costo,
+          activo: row.activo!==false, alta: (row.creado||'').slice(0,10) || new Date().toISOString().slice(0,10)
+        });
+        m[idLocal] = row.id;
+        agregados = true;
+      }
+      if(agregados){
+        // Escritura DIRECTA a localStorage (no vía saveProds): evita disparar de nuevo
+        // el evento de guardado y reenviar a la nube lo que se acaba de traer de ahí.
+        localStorage.setItem('ricchary_productos', JSON.stringify(locales));
+        saveProdsMap(m);
+        try{ if(typeof window.catPintarAdmin==='function') window.catPintarAdmin(); }catch(e){}
+      }
+    }catch(e){}
+  }
+
+  /* ══════════════════════════════════════════════════════════════
      IMPORTAR HISTORIAL DE V1 (Apps Script → Supabase, una sola vez)
      Reutiliza exactamente el mismo parseo que ya usa syncListar()
      para leer filas de Apps Script; nada de esto se envía de vuelta
@@ -5680,6 +5772,14 @@ window.addEventListener('load', async ()=>{
       try{ window.syncListar().then(function(){ try{ if(typeof renderHistorial==='function') renderHistorial(); }catch(e2){} }); }catch(e){}
       nubePullGastos();
       nubePullOrdenBotones();
+      // Catálogo: primero sube lo que ya había en este dispositivo sin sincronizar
+      // (por si el usuario cargó productos antes de iniciar sesión), y recién después
+      // trae lo que falte de otros dispositivos — en ese orden, para no jalar de vuelta
+      // lo que se acaba de subir.
+      try{
+        var __prodsLocales = JSON.parse(localStorage.getItem('ricchary_productos')||'[]');
+        syncCatalogo(__prodsLocales).then(function(){ nubePullCatalogo(); });
+      }catch(e){ nubePullCatalogo(); }
     }
   });
 
