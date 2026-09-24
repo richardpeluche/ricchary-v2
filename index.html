@@ -1563,6 +1563,7 @@ Este documento es de carácter contrato cliente-ofertador, que firmado constituy
       <label>📅 Fecha y hora de entrega</label>
       <input type="datetime-local" id="agendaFecha">
     </div>
+    <div id="agendaChoque" style="display:none"></div>
 
     <div class="agenda-field">
       <label>💰 Abono recibido ($)</label>
@@ -1966,8 +1967,8 @@ function agendarDesdeCot(cot){
   const totalNum=parseFloat(totalTxt.replace(/[^0-9.,]/g,'').replace(',','.'));
   const desc=`📦 PEDIDO:\n${itemsList}\n👤 CLIENTE: ${cliente}\n💰 TOTAL: ${totalTxt}\n📋 OBS: ${notas}\n📱 Proforma RICCHARY #${cot.num}`;
 
-  // Calcular fecha: hoy + días laborables configurados como entrega sugerida
-  const baseDate = sumarDiasLaborables(new Date(), diasEntrega());
+  // Calcular fecha: hoy + días laborables de ESTA cotización (antes tomaba los del formulario abierto)
+  const baseDate = sumarDiasLaborables(new Date(), parseInt(cot.diasEntrega,10) || diasEntrega());
   baseDate.setHours(15,0,0,0);
   const fechaISO = baseDate.toISOString().slice(0,10);
   const fechaEnd = new Date(baseDate.getTime()+48*60*60000).toISOString();
@@ -5158,6 +5159,210 @@ window.addEventListener('load', async ()=>{
   });
 })();
 
+</script>
+<script>
+/* ══════════════════════════════════════════════════════════════════
+   ALERTA DE CHOQUE DE ENTREGAS
+   Antes de poner un pedido en producción (Confirmado / En producción,
+   o al Agendar), revisa si otro pedido activo ya se entrega esa MISMA
+   SEMANA y avisa, con una fecha sugerida sin choque.
+   ══════════════════════════════════════════════════════════════════ */
+(function(){
+  var ACTIVOS = ['Confirmado','En producción'];
+  var NO_PRENDA = /env[ií]o|transporte|flete|dise[ñn]o|instalaci|domicilio/i;
+
+  function hoy0(){ var d=new Date(); d.setHours(0,0,0,0); return d; }
+  function lunes(d){ var x=new Date(d); x.setHours(0,0,0,0); var wd=(x.getDay()+6)%7; x.setDate(x.getDate()-wd); return x; }
+  function claveSemana(d){ return lunes(d).toISOString().slice(0,10); }
+  function fmt(d){ return d.toLocaleDateString('es-EC',{weekday:'short',day:'numeric',month:'short'}); }
+  function fmtSemana(d){
+    var l=lunes(d), v=new Date(l); v.setDate(v.getDate()+4);
+    return 'semana del '+l.getDate()+' al '+v.toLocaleDateString('es-EC',{day:'numeric',month:'short'});
+  }
+  function prendas(items){
+    var t=0;
+    (items||[]).forEach(function(it){
+      if(NO_PRENDA.test(it.desc||'')) return;
+      var q=parseFloat(String(it.qty||'').replace(',','.')); if(q>0) t+=q;
+    });
+    return Math.round(t);
+  }
+  function laborablesHasta(fecha){
+    var d=hoy0(), n=0, fin=new Date(fecha); fin.setHours(0,0,0,0);
+    while(d<fin){ d.setDate(d.getDate()+1); var wd=d.getDay(); if(wd!==0&&wd!==6) n++; }
+    return Math.max(1,n);
+  }
+  function sinFinDeSemana(d){ var x=new Date(d); while(x.getDay()===0||x.getDay()===6) x.setDate(x.getDate()+1); return x; }
+
+  // Todas las cotizaciones (local + nube), sin duplicar por número
+  function todas(){
+    var m={};
+    try{ (typeof getHistory==='function'?getHistory():[]).forEach(function(c){ if(c&&c.num!=null) m[String(c.num)]=c; }); }catch(e){}
+    try{ (typeof CLOUD_HIST!=='undefined'?CLOUD_HIST:[]).forEach(function(c){ if(c&&c.num!=null&&!m[String(c.num)]) m[String(c.num)]=c; }); }catch(e){}
+    return Object.keys(m).map(function(k){ return m[k]; });
+  }
+
+  // Fecha de entrega de un pedido ya activo: la agendada si existe; si no,
+  // confirmación (o fecha de la cotización) + sus días laborables.
+  function entregaDe(c){
+    try{ var ag=(typeof yaAgendado==='function')?yaAgendado(c.num):null;
+      if(ag&&ag.entrega){ var e=new Date(ag.entrega); if(!isNaN(e)) return e; } }catch(e){}
+    var base = c.fechaConfirm ? new Date(c.fechaConfirm+'T12:00:00')
+             : (c.fecha ? new Date(c.fecha+'T12:00:00') : null);
+    if(!base||isNaN(base)) return null;
+    return sumarDiasLaborables(base, parseInt(c.diasEntrega,10)||30);
+  }
+
+  function choquesPara(num, fecha){
+    var k=claveSemana(fecha);
+    return todas().filter(function(c){
+      if(String(c.num)===String(num)) return false;
+      if(ACTIVOS.indexOf(c.estado)<0) return false;
+      var e=entregaDe(c); return e && claveSemana(e)===k;
+    }).map(function(c){ return {num:c.num, cliente:c.cliente||c.empresa||'Sin nombre', prendas:prendas(c.items), entrega:entregaDe(c)}; });
+  }
+
+  function sugerida(num, fecha){
+    var d=new Date(fecha);
+    for(var i=0;i<26;i++){ d.setDate(d.getDate()+7); if(!choquesPara(num,d).length) return sinFinDeSemana(d); }
+    return null;
+  }
+
+  function htmlAviso(ch, nuevas, fecha, sug){
+    var total = nuevas + ch.reduce(function(a,c){return a+c.prendas;},0);
+    var h='<div style="background:#fff7e6;border:1.5px solid #f59e0b;border-radius:10px;padding:12px 14px;margin:8px 0;text-align:left">'+
+      '<div style="font-weight:800;color:#92400e;font-size:13.5px;margin-bottom:6px">⚠️ Choque de entregas — '+fmtSemana(fecha)+'</div>'+
+      '<div style="font-size:12.5px;color:#78350f;line-height:1.55">Ya tienes '+ch.length+' pedido'+(ch.length===1?'':'s')+' en producción que se entrega'+(ch.length===1?'':'n')+' esa semana:';
+    ch.forEach(function(c){ h+='<br>• <b>#'+c.num+'</b> · '+escapar(c.cliente)+' · '+c.prendas+' prendas · entrega '+fmt(c.entrega); });
+    h+='<br>Con este ('+nuevas+' prendas) serían <b>'+total+' prendas</b> para esa semana.';
+    if(sug) h+='<br>Fecha sugerida sin choque: <b>'+fmt(sug)+'</b>.';
+    h+='</div></div>';
+    return h;
+  }
+  function escapar(t){ return String(t).replace(/[&<>"]/g,function(ch){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch];}); }
+
+  // Ventana de decisión: resuelve 'igual' | 'sugerida' | 'cancelar'
+  function preguntar(ch, nuevas, fecha, sug){
+    return new Promise(function(resolve){
+      var ov=document.createElement('div');
+      ov.id='choqueOverlay';
+      ov.style.cssText='position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:3000;display:flex;align-items:center;justify-content:center;padding:18px';
+      ov.innerHTML='<div style="background:#fff;border-radius:16px;max-width:460px;width:100%;padding:20px 20px 16px;box-shadow:0 20px 50px rgba(0,0,0,.3)">'+
+        htmlAviso(ch,nuevas,fecha,sug)+
+        '<div style="display:flex;flex-direction:column;gap:8px;margin-top:10px">'+
+          (sug?'<button data-r="sugerida" style="background:#0F8198;color:#fff;border:0;border-radius:10px;padding:11px;font-weight:700;font-size:14px;cursor:pointer">Usar fecha sugerida ('+fmt(sug)+')</button>':'')+
+          '<button data-r="igual" style="background:#fff;color:#92400e;border:1.5px solid #f59e0b;border-radius:10px;padding:10px;font-weight:700;font-size:14px;cursor:pointer">Confirmar igual ('+fmt(fecha)+')</button>'+
+          '<button data-r="cancelar" style="background:#f1f5f9;color:#475569;border:0;border-radius:10px;padding:10px;font-weight:600;font-size:13.5px;cursor:pointer">Cancelar</button>'+
+        '</div></div>';
+      ov.addEventListener('click',function(e){
+        var r=e.target.getAttribute&&e.target.getAttribute('data-r');
+        if(!r && e.target!==ov) return;
+        ov.remove(); resolve(r||'cancelar');
+      });
+      document.body.appendChild(ov);
+    });
+  }
+
+  // Guarda un cambio de días de entrega en la cotización (local + nube)
+  function guardarDias(num, dias){
+    try{
+      var h=getHistory(), cotAct=null;
+      h.forEach(function(c){ if(String(c.num)===String(num)){ c.diasEntrega=String(dias); cotAct=c; } });
+      saveHistory(h);
+      if(typeof CLOUD_HIST!=='undefined') CLOUD_HIST.forEach(function(c){ if(String(c.num)===String(num)){ c.diasEntrega=String(dias); if(!cotAct) cotAct=c; } });
+      if(cotAct && typeof window.syncGuardar==='function') window.syncGuardar(cotAct);
+      var f=document.getElementById('fDiasEntrega'), o=document.getElementById('docOrden');
+      if(f && o && String(o.value)===String(num)) f.value=String(dias);
+    }catch(e){}
+  }
+  function marcarConfirmacion(num){
+    try{
+      var h=getHistory(), hoyISO=new Date().toISOString().slice(0,10), cambio=false;
+      h.forEach(function(c){ if(String(c.num)===String(num) && !c.fechaConfirm){ c.fechaConfirm=hoyISO; cambio=true; } });
+      if(cambio) saveHistory(h);
+      if(typeof CLOUD_HIST!=='undefined') CLOUD_HIST.forEach(function(c){ if(String(c.num)===String(num) && !c.fechaConfirm) c.fechaConfirm=hoyISO; });
+    }catch(e){}
+  }
+  function buscar(num){ var r=null; todas().forEach(function(c){ if(String(c.num)===String(num)) r=c; }); return r; }
+
+  // Revisión común. Devuelve true si se puede seguir.
+  async function revisar(cot){
+    var dias=parseInt(cot.diasEntrega,10)||30;
+    var fecha=sumarDiasLaborables(new Date(), dias);
+    var ch=choquesPara(cot.num, fecha);
+    if(!ch.length) return true;
+    var sug=sugerida(cot.num, fecha);
+    var r=await preguntar(ch, prendas(cot.items), fecha, sug);
+    if(r==='cancelar') return false;
+    if(r==='sugerida' && sug){ var nd=laborablesHasta(sug); cot.diasEntrega=String(nd); guardarDias(cot.num, nd); }
+    return true;
+  }
+
+  window.choqueEntregas = { choquesPara: choquesPara, entregaDe: entregaDe, sugerida: sugerida, prendas: prendas, revisar: revisar };
+
+  // ── 1) Cambio de estado desde el Historial ──
+  var _revisado = null;   // evita preguntar dos veces en el mismo flujo (Agendar → cambiarEstado)
+  var _cambiarEstadoOrig = window.cambiarEstado;
+  window.cambiarEstado = async function(orden, estado){
+    var c=buscar(orden);
+    var antes=c ? (c.estado||'Cotizado') : 'Cotizado';
+    var entra = ACTIVOS.indexOf(estado)>=0 && ACTIVOS.indexOf(antes)<0;
+    if(entra && String(_revisado)!==String(orden) && c){
+      var ok=await revisar(c);
+      if(!ok){ try{ renderHistorial(); }catch(e){} return; }
+    }
+    if(entra) marcarConfirmacion(orden);
+    _revisado=null;
+    return _cambiarEstadoOrig.apply(this, arguments);
+  };
+
+  // ── 2) Agendar desde el Historial ──
+  var _agendarOrig = window.agendarDesdeCot;
+  window.agendarDesdeCot = async function(cot){
+    if(cot && ACTIVOS.indexOf(cot.estado||'Cotizado')<0){
+      var ok=await revisar(cot);
+      if(!ok) return;
+      _revisado=cot.num;
+    }
+    return _agendarOrig.call(this, cot);
+  };
+
+  // ── 3) Botón principal "Agendar Pedido": aviso dentro de la ventana ──
+  function avisoAgenda(){
+    var box=document.getElementById('agendaChoque'), inp=document.getElementById('agendaFecha');
+    if(!box||!inp) return;
+    var num=(document.getElementById('docOrden')||{}).value||'';
+    var fecha=inp.value?new Date(inp.value):null;
+    var ch=(fecha&&!isNaN(fecha))?choquesPara(num,fecha):[];
+    if(!ch.length){ box.style.display='none'; box.innerHTML=''; return; }
+    var items=[];
+    document.querySelectorAll('#itemsBody tr').forEach(function(r){
+      var cells=r.querySelectorAll('td'); if(cells.length<4) return;
+      items.push({qty:(cells[0].querySelector('input')||{}).value, desc:(cells[1].querySelector('input')||{}).value});
+    });
+    var sug=sugerida(num,fecha);
+    box.innerHTML=htmlAviso(ch,prendas(items),fecha,sug)+
+      (sug?'<button type="button" id="agendaUsarSug" style="width:100%;background:#0F8198;color:#fff;border:0;border-radius:10px;padding:10px;font-weight:700;cursor:pointer;margin-bottom:6px">Usar fecha sugerida ('+fmt(sug)+')</button>':'');
+    box.style.display='block';
+    var b=document.getElementById('agendaUsarSug');
+    if(b) b.onclick=function(){
+      var p=function(x){return String(x).padStart(2,'0');};
+      var h=inp.value?inp.value.slice(11,16):'15:00';
+      inp.value=sug.getFullYear()+'-'+p(sug.getMonth()+1)+'-'+p(sug.getDate())+'T'+h;
+      var d=laborablesHasta(sug); var f=document.getElementById('fDiasEntrega'); if(f) f.value=String(d);
+      if(num) guardarDias(num,d);
+      avisoAgenda();
+    };
+  }
+  window.addEventListener('load', function(){
+    var ab=document.getElementById('agendaBtn'), inp=document.getElementById('agendaFecha');
+    if(ab) ab.addEventListener('click', function(){ setTimeout(avisoAgenda,0); });
+    if(inp){ inp.addEventListener('input', avisoAgenda); inp.addEventListener('change', avisoAgenda); }
+    // El botón principal pasa la orden a Confirmado al final: ya se avisó en la ventana
+    var cb=document.getElementById('agendaConfirmBtn');
+    if(cb) cb.addEventListener('click', function(){ _revisado=(document.getElementById('docOrden')||{}).value||null; }, true);
+  });
+})();
 </script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
