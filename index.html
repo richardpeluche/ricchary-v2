@@ -1614,6 +1614,7 @@ function calcTotals(){
   document.getElementById('ivaVal').textContent=fmt(iva);
   document.getElementById('totalVal').textContent=fmt(sub+iva);
   calcSaldo();
+  condicionesAuto();
 }
 function addRow(item){
   const tb=document.getElementById('itemsBody');
@@ -1738,6 +1739,22 @@ function sumarDiasLaborables(base, n){
 }
 function diasEntrega(){
   return parseInt(document.getElementById('fDiasEntrega')?.value,10) || 30;
+}
+var COND_DEFAULT = 'Abono 50% al confirmar el pedido. El plazo de entrega corre a partir de la confirmación del pedido y aprobación del diseño.\nEste documento es de carácter contrato cliente-ofertador, que firmado constituye un documento de COMPROMISO.';
+var COND_CHAQUETAS = COND_DEFAULT + '\n\n'
+  + 'El plazo de entrega es aproximado y puede extenderse por situaciones externas — por ejemplo, si no existe en stock la tela del tono exacto del pedido y debe fabricarse.\n\n'
+  + 'Devoluciones por parte nuestra: el plazo de devolución es de 8 días hábiles. Si el cliente decide declinar el pedido ya confirmado, la devolución se realiza en 15 días hábiles, ya que el material fue adquirido con anticipación.\n\n'
+  + 'Los reclamos se reciben hasta 10 días después de la entrega; pasado ese plazo no son negociables.\n\n'
+  + 'La talla es responsabilidad exclusiva del cliente, pues la producción se guía por el listado de tallas proporcionado por él mismo.';
+function condicionesAuto(){
+  var n = document.getElementById('fNotas'); if(!n) return;
+  var actual = n.value;
+  var base = localStorage.getItem('cfg_condiciones') || COND_DEFAULT;
+  var hayChaqueta = Array.prototype.some.call(document.querySelectorAll('#itemsBody .item-row input[type="text"]'),
+    function(i){ return /chaqueta/i.test(i.value||''); });
+  if(hayChaqueta && actual===base) n.value = COND_CHAQUETAS;
+  else if(!hayChaqueta && actual===COND_CHAQUETAS) n.value = base;
+  // Cambio por detección automática, no por el usuario: no se guarda como nueva condición por defecto.
 }
 window.addEventListener('load', ()=>{
   const n = document.getElementById('fNotas');
