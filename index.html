@@ -2134,7 +2134,7 @@ function renderHistorial(){
           : `<button class="btn-hist-load" style="opacity:.65" onclick="abrirModalPro()">🔒 Cargar en formulario</button>
              <button class="btn-hist-load" style="background:#7c3aed;opacity:.65" onclick="abrirModalPro()">🔒 Repetir pedido</button>`
         }
-        ${filtro==='seguimiento'?`<button class="btn-hist-agenda" style="background:#25D366" onclick="hacerSeguimiento(window._hist[${idx}])">💬 Seguimiento ${((window.segInfo?window.segInfo(cot).n:0)||0)+1}/3</button>`:''}
+        ${filtro==='seguimiento'?`${(parseFloat(String(cot.abono||'').replace(',','.'))||0)>0?'<span style="background:#fef3c7;color:#92400e;font-size:11px;font-weight:700;padding:4px 8px;border-radius:6px;align-self:center">con abono</span>':''}<button class="btn-hist-agenda" style="background:#25D366" onclick="hacerSeguimiento(window._hist[${idx}])">💬 Seguimiento ${((window.segInfo?window.segInfo(cot).n:0)||0)+1}/3</button>`:''}
         <button class="btn-hist-agenda" onclick="agendarDesdeCot(window._hist[${idx}])">${yaAgendado(cot.num)?'🔁 Reagendar':'📅 Agendar'}</button>
         ${esFacturada(cot)?`<button class="btn-hist-vfact" onclick="verFactura('${cot.num}')">📄 Ver Factura</button>`:''}
         ${cot._cloud?`<button class="btn-hist-del" onclick="eliminarCotNube('${String(cot.num).replace(/'/g,'')}')">🗑 Eliminar</button>`:`<button class="btn-hist-del" onclick="eliminarCot(${cot.id})">🗑 Eliminar</button>`}
@@ -5528,6 +5528,74 @@ window.addEventListener('load', async ()=>{
   };
 
   window.addEventListener('load', function(){ setTimeout(window.segActualizar,1500); setTimeout(window.segActualizar,6000); });
+})();
+</script>
+<script>
+/* ═══ CIERRE DE CICLO: preguntas automáticas (confirmación a los 7 días / entrega al vencer la fecha) ═══ */
+(function(){
+  var CK='ricchary_cierre';
+  function mapa(){ try{ return JSON.parse(localStorage.getItem(CK)||'{}'); }catch(e){ return {}; } }
+  function guardar(m){ try{ localStorage.setItem(CK,JSON.stringify(m)); }catch(e){} }
+  function posponer(tipo,num,dias){ var m=mapa(); var k=tipo+':'+num; m[k]={hasta:Date.now()+dias*86400000}; guardar(m); }
+  function marcar(tipo,num,v){ var m=mapa(); m[tipo+':'+num]={v:v}; guardar(m); }
+  function bloqueada(tipo,num){ var r=mapa()[tipo+':'+num]; if(!r) return false; if(r.v) return true; return r.hasta && Date.now()<r.hasta; }
+  var abierto=false, cola=[];
+
+  function caja(titulo,html,botones){
+    var ov=document.createElement('div'); ov.className='modal-overlay open'; ov.style.zIndex=1300;
+    var bx=document.createElement('div'); bx.className='modal-box';
+    bx.innerHTML='<div class="modal-title" style="margin-bottom:10px">'+titulo+'</div><div style="font-size:14px;line-height:1.6;color:#334155;margin-bottom:18px">'+html+'</div>';
+    var fila=document.createElement('div'); fila.style.cssText='display:flex;flex-direction:column;gap:8px';
+    botones.forEach(function(b){
+      var el=document.createElement('button'); el.textContent=b.t;
+      el.style.cssText='padding:12px;border-radius:10px;border:'+(b.main?'0':'1px solid #cbd5e1')+';font-weight:700;font-size:14px;cursor:pointer;background:'+(b.main?b.bg:'#fff')+';color:'+(b.main?'#fff':'#475569');
+      el.onclick=function(){ document.body.removeChild(ov); abierto=false; try{ b.f(); }catch(e){} setTimeout(siguiente,250); };
+      fila.appendChild(el);
+    });
+    bx.appendChild(fila); ov.appendChild(bx); document.body.appendChild(ov); abierto=true;
+  }
+  function resumen(c){
+    var ab=parseFloat(String(c.abono||'').replace(',','.'))||0;
+    return '<b>N° '+c.num+'</b> · '+(c.cliente||c.empresa||'Sin nombre')+(c.total?' · '+c.total:'')+(ab>0?'<br>Abono registrado: $'+ab.toFixed(2):'');
+  }
+  function cambiar(num,est){
+    try{ var p=window.cambiarEstado(num,est); if(p&&p.catch) p.catch(function(){}); }catch(e){}
+    try{ window.segActualizar(); }catch(e){}
+  }
+  function siguiente(){
+    if(abierto||!cola.length) return;
+    var t=cola.shift();
+    if(t.tipo==='conf'){
+      caja('¿Pedido confirmado?','Pasaron '+t.dias+' días desde la proforma.<br>'+resumen(t.c),[
+        {t:'Sí, está confirmado',main:1,bg:'#1565C0',f:function(){ marcar('conf',t.c.num,'si'); cambiar(t.c.num,'Confirmado'); }},
+        {t:'No, enviar a Seguimiento',main:1,bg:'#25D366',f:function(){ marcar('conf',t.c.num,'no'); try{ window.segActualizar(); renderHistorial(); }catch(e){} }},
+        {t:'Preguntar luego (3 días)',f:function(){ posponer('conf',t.c.num,3); }}
+      ]);
+    }else{
+      caja('¿Pedido entregado?','Ya pasó la fecha de entrega ('+t.fecha+').<br>'+resumen(t.c),[
+        {t:'Sí, fue entregado',main:1,bg:'#22c55e',f:function(){ marcar('ent',t.c.num,'si'); cambiar(t.c.num,'Entregado'); }},
+        {t:'Aún no (preguntar en 2 días)',f:function(){ posponer('ent',t.c.num,2); }}
+      ]);
+    }
+  }
+  window.cierreRevisar=function(){
+    if(abierto||cola.length) return 0;
+    var lista=[]; try{ lista=window.histFusionado(); }catch(e){ return 0; }
+    var ahora=Date.now();
+    lista.forEach(function(c){
+      var est=String(c.estado||'Cotizado');
+      if(est==='Cotizado'){
+        var si=window.segInfo(c);
+        if(si.pendiente && !bloqueada('conf',c.num)) cola.push({tipo:'conf',c:c,dias:si.dias});
+      }else if(['Confirmado','En producción','Listo'].indexOf(est)>-1){
+        var ag=null; try{ ag=yaAgendado(c.num); }catch(e){}
+        var te=ag&&ag.entrega?Date.parse(ag.entrega):NaN;
+        if(!isNaN(te) && ahora>te+86400000 && !bloqueada('ent',c.num)) cola.push({tipo:'ent',c:c,fecha:new Date(te).toLocaleDateString('es-EC')});
+      }
+    });
+    cola=cola.slice(0,6); siguiente(); return cola.length;
+  };
+  window.addEventListener('load',function(){ setTimeout(window.cierreRevisar,4000); setTimeout(window.cierreRevisar,12000); });
 })();
 </script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
