@@ -160,6 +160,10 @@ input, textarea, select, [contenteditable]{
 }
 
 
+/* PEDIDO ANULADO */
+.hist-card.hist-anulada{opacity:.62;background:#f8fafc}
+.hist-card.hist-anulada .hist-card-total{text-decoration:line-through}
+.badge-anulado{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:999px;background:#64748b;color:#fff;font-size:10px;font-weight:800;letter-spacing:.04em;vertical-align:1px}
 /* COSTO Y MARGEN POR LÍNEA (privado, no sale en impresión/PDF) */
 .mg-line{display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-top:3px;font-size:11px;color:var(--muted)}
 .mg-line input.mg-cost{width:52px;padding:1px 4px;border:0.5px dashed #cbd5e1;border-radius:4px;font-size:11px;text-align:right;background:#f8fafc;color:var(--text)}
@@ -1803,8 +1807,8 @@ window.addEventListener('load', ()=>{
 });
 
 // ===== ESTADOS DEL PEDIDO (RICCHARY) =====
-const ESTADOS = ['Cotizado','Confirmado','En producción','Listo','Entregado'];
-const ESTADO_COLOR = {'Cotizado':'#64748b','Confirmado':'var(--brand)','En producción':'#f59e0b','Listo':'#8b5cf6','Entregado':'#22c55e'};
+const ESTADOS = ['Cotizado','Confirmado','En producción','Listo','Entregado','Anulado'];
+const ESTADO_COLOR = {'Cotizado':'#64748b','Confirmado':'var(--brand)','En producción':'#f59e0b','Listo':'#8b5cf6','Entregado':'#22c55e','Anulado':'#94a3b8'};
 let estadoActual = 'Cotizado';
 
 async function cambiarEstado(orden, estado){
@@ -2097,6 +2101,7 @@ function renderHistorial(){
   const D = 24*60*60*1000;
   const claseCot = (cot)=>{
     // Marcado manual tiene prioridad
+    if((cot.estado||'')==='Anulado') return 'anulada';   // solo aparece en "Todas"
     if((cot.estado||'')==='Entregado') return 'terminada';
     const ag = yaAgendado(cot.num);
     if(ag && ag.entrega){
@@ -2141,9 +2146,9 @@ function renderHistorial(){
     return;
   }
   container.innerHTML=hist.map((cot,idx)=>`
-    <div class="hist-card">
+    <div class="hist-card${(cot.estado||'')==='Anulado'?' hist-anulada':''}">
       <div class="hist-card-header">
-        <span class="hist-card-num">Proforma #${cot.num||'—'} ${yaAgendado(cot.num)?'<span class="badge-agendado">✅ Agendado</span>':''}${cot._cloud?'<span class="badge-nube">☁️ Nube</span>':''}</span>
+        <span class="hist-card-num">Proforma #${cot.num||'—'} ${(cot.estado||'')==='Anulado'?'<span class="badge-anulado">ANULADO</span>':''}${yaAgendado(cot.num)?'<span class="badge-agendado">✅ Agendado</span>':''}${cot._cloud?'<span class="badge-nube">☁️ Nube</span>':''}</span>
         <span class="hist-card-date">🕓 ${cot.savedAt}</span>
       </div>
       <div class="hist-card-client">👤 ${cot.cliente||'Sin nombre'}</div>
@@ -4186,6 +4191,7 @@ window.addEventListener('load', async ()=>{
       if(!c) return;
       var n=String(c.num||'');
       if(!n || vistos[n]) return;
+      if(String(c.estado||'')==='Anulado'){ vistos[n]=1; return; }   // anulado: no cuenta
       try{ if(typeof esFacturada==='function' && !esFacturada(c)) return; }catch(e){ return; }
       vistos[n]=1; out.push(c);
     }
@@ -4379,6 +4385,7 @@ window.addEventListener('load', async ()=>{
     var vistos={}, out=[];
     function meter(c){
       if(!c) return; var n=String(c.num||''); if(!n||vistos[n]) return;
+      if(String(c.estado||'')==='Anulado'){ vistos[n]=1; return; }
       var fac=false; try{ fac=(typeof esFacturada==='function')&&esFacturada(c); }catch(e){}
       var est=String(c.estado||'Cotizado');
       if(!fac && ESTADOS_VENTA.indexOf(est)===-1) return;
@@ -6607,4 +6614,22 @@ window.addEventListener('load', function(){
 
 <div id="swBar">🆕 Hay una versión nueva de la app
   <button id="swGo" type="button">Actualizar</button></div>
+<script>
+/* ═══ ANULAR PEDIDO: pide confirmación. El pedido no se borra; deja de contar en ventas y reportes ═══ */
+(function(){
+  if(typeof window.cambiarEstado!=='function') return;
+  var _orig=window.cambiarEstado;
+  window.cambiarEstado=async function(orden, estado){
+    if(estado==='Anulado'){
+      var fac=false;
+      try{ var c=(window.histFusionado?window.histFusionado():[]).find(function(x){ return String(x.num)===String(orden); }); fac=!!(c&&esFacturada(c)); }catch(e){}
+      var msg='¿Anular el pedido N° '+orden+'?\n\nNo se borra: queda en el historial como ANULADO y deja de contar en ventas, reportes y por cobrar.'+
+        (fac?'\n\nEste pedido está FACTURADO: recuerda anular la factura en el portal del SRI.':'')+
+        '\n\nPuedes revertirlo cambiando el estado otra vez.';
+      if(!confirm(msg)){ try{ renderHistorial(); }catch(e){} return; }
+    }
+    return _orig.apply(this, arguments);
+  };
+})();
+</script>
 </body></html>
