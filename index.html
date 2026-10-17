@@ -619,6 +619,19 @@ body.pidiendo-impuesto .claim-sep{margin:6px auto}
   color:var(--brand);border-bottom:2px solid var(--brand-light);padding-bottom:5px;margin:2px 0 10px}
 .rep-sec.int{color:#7c5c00;border-bottom-color:#fde68a;margin-top:16px}
 .rep-card.int{background:#fffbeb;border-color:#fde68a}
+.cmp-tabla th small{font-weight:500;color:rgba(255,255,255,.8);font-size:10px}
+.cmp-tabla td{vertical-align:top}
+.cmp-d{display:inline-block;font-size:10.5px;font-weight:700;color:var(--muted)}
+.cmp-d.up{color:#15803d}.cmp-d.down{color:#b91c1c}
+.cmp-chart{display:flex;gap:6px;align-items:flex-end;height:150px;padding:8px 4px 0;border-bottom:1px solid #e2e8f0;margin-bottom:6px}
+.cmp-col{flex:1;display:flex;flex-direction:column;align-items:center;height:100%}
+.cmp-bars{flex:1;width:100%;display:flex;gap:3px;align-items:flex-end;justify-content:center}
+.cmp-b{width:42%;min-height:2px;border-radius:4px 4px 0 0}
+.cmp-b.v,.cmp-ley i.v{background:var(--brand)}.cmp-b.g,.cmp-ley i.g{background:#f87171}
+.cmp-m{font-size:10.5px;font-weight:700;color:var(--muted);margin-top:4px}
+.cmp-v{font-size:9.5px;color:var(--muted);min-height:12px}
+.cmp-ley{display:flex;gap:14px;font-size:11px;color:var(--muted);margin:6px 0 10px}
+.cmp-ley i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
 .rep-card.int .val{color:#78350f}
 .rep-tabla{width:100%;border-collapse:collapse;font-size:12.5px;margin-bottom:12px}
 .rep-tabla th{background:var(--brand);color:#fff;text-align:left;padding:8px 9px;font-size:11.5px}
@@ -4140,19 +4153,20 @@ window.addEventListener('load', async ()=>{
 
   window.repTab=function(t){
     pestana=t;
-    [['ventas','repTabV'],['gastos','repTabG'],['resumen','repTabR'],['cobrar','repTabC']].forEach(function(p){
+    [['ventas','repTabV'],['gastos','repTabG'],['resumen','repTabR'],['cobrar','repTabC'],['comparar','repTabP']].forEach(function(p){
       var b=$(p[1]); if(b) b.classList.toggle('on', p[0]===t);
     });
     // "Por cobrar" muestra lo que se debe HOY: no depende del rango de fechas
     ['.rep-rango','.rep-atajos'].forEach(function(sel){
-      var e=document.querySelector('#repModal '+sel); if(e) e.style.display=(t==='cobrar')?'none':'';
+      var e=document.querySelector('#repModal '+sel); if(e) e.style.display=(t==='cobrar'||t==='comparar')?'none':'';
     });
     repPintar();
   };
 
   window.repPintar=function(){
     var c=$('repCuerpo'); if(!c) return;
-    if(pestana==='cobrar')       c.innerHTML=vistaCobrar();
+    if(pestana==='comparar')     c.innerHTML=vistaComparar();
+    else if(pestana==='cobrar')  c.innerHTML=vistaCobrar();
     else if(pestana==='ventas')       c.innerHTML=vistaVentas();
     else if(pestana==='gastos')  c.innerHTML=vistaGastos();
     else                         c.innerHTML=vistaResumen();
@@ -4254,6 +4268,77 @@ window.addEventListener('load', async ()=>{
         ? '<div class="rep-lista"><table class="rep-tabla"><tr><th>Fecha</th><th>Concepto</th>'+
           '<th class="num">Monto</th><th></th></tr>'+filas+'</table></div>'
         : '<div class="rep-vacio">Aún no registras gastos en este rango.</div>');
+  }
+
+  /* ── COMPARAR PERIODOS (solo lectura) ──
+     Vendido   = pedidos Confirmados en adelante + facturados (sin duplicar).
+     Facturado = solo los marcados como facturados.
+     Gastos    = gastos registrados.  Se agrupa por la fecha de la cotización. */
+  function todosPedidos(){
+    var vistos={}, out=[];
+    function meter(c){
+      if(!c) return; var n=String(c.num||''); if(!n||vistos[n]) return;
+      var fac=false; try{ fac=(typeof esFacturada==='function')&&esFacturada(c); }catch(e){}
+      var est=String(c.estado||'Cotizado');
+      if(!fac && ESTADOS_VENTA.indexOf(est)===-1) return;
+      vistos[n]=1; out.push({c:c,fac:fac});
+    }
+    try{ (typeof getHistory==='function'?getHistory():[]).forEach(meter); }catch(e){}
+    try{ if(typeof CLOUD_HIST!=='undefined' && CLOUD_HIST) CLOUD_HIST.forEach(meter); }catch(e){}
+    return out;
+  }
+  function isoD(x){ return new Date(x.getTime()-x.getTimezoneOffset()*60000).toISOString().slice(0,10); }
+  function periodo(y,m){ return {d:isoD(new Date(y,m,1)), h:isoD(new Date(y,m+1,0)), y:y, m:m}; }
+  function cifras(p, peds, gs){
+    var r={vend:0,fac:0,gas:0,n:0};
+    peds.forEach(function(x){ var f=fechaDe(x.c); if(!f||f<p.d||f>p.h) return;
+      var t=num(x.c.total); r.vend+=t; r.n++; if(x.fac) r.fac+=t; });
+    gs.forEach(function(g){ if(!g.fecha||g.fecha<p.d||g.fecha>p.h) return; r.gas+=num(g.monto); });
+    r.prom = r.n ? r.vend/r.n : 0;
+    return r;
+  }
+  var MESES=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+  function nomP(p){ return MESES[p.m]+' '+p.y; }
+  function delta(a,b,inv){
+    if(!b) return a? '<span class="cmp-d">nuevo</span>' : '<span class="cmp-d">—</span>';
+    var pc=Math.round((a-b)/b*100), bueno=inv?pc<0:pc>0, malo=inv?pc>0:pc<0;
+    return '<span class="cmp-d '+(bueno?'up':(malo?'down':''))+'">'+(pc>0?'+':'')+pc+'%</span>';
+  }
+  function vistaComparar(){
+    var hoy=new Date(), y=hoy.getFullYear(), m=hoy.getMonth();
+    var pA=periodo(y,m), pB=periodo(y,m-1), pC=periodo(y-1,m);
+    pB=periodo(new Date(y,m-1,1).getFullYear(), new Date(y,m-1,1).getMonth());
+    var peds=todosPedidos(), gs=gastos();
+    var A=cifras(pA,peds,gs), B=cifras(pB,peds,gs), C=cifras(pC,peds,gs);
+    function fila(lbl,k,dinero,invert){
+      var f=function(v){ return dinero?money(v):String(v); };
+      return '<tr><td>'+lbl+'</td><td class="num"><b>'+f(A[k])+'</b></td>'+
+        '<td class="num">'+f(B[k])+'<br>'+delta(A[k],B[k],invert)+'</td>'+
+        '<td class="num">'+f(C[k])+'<br>'+delta(A[k],C[k],invert)+'</td></tr>';
+    }
+    var tabla='<div class="rep-lista"><table class="rep-tabla cmp-tabla"><tr><th></th>'+
+      '<th class="num">'+nomP(pA)+'<br><small>este mes</small></th>'+
+      '<th class="num">'+nomP(pB)+'<br><small>mes pasado</small></th>'+
+      '<th class="num">'+nomP(pC)+'<br><small>hace un año</small></th></tr>'+
+      fila('Vendido','vend',true)+fila('Pedidos','n',false)+fila('Ticket promedio','prom',true)+
+      fila('Facturado','fac',true)+fila('Gastos','gas',true,true)+'</table></div>';
+    // Barras últimos 6 meses
+    var ms=[], max=0;
+    for(var i=5;i>=0;i--){ var dt=new Date(y,m-i,1); var p=periodo(dt.getFullYear(),dt.getMonth());
+      var r=cifras(p,peds,gs); ms.push({p:p,r:r}); max=Math.max(max,r.vend,r.gas); }
+    var barras=ms.map(function(x){
+      var hv=max?Math.round(x.r.vend/max*100):0, hg=max?Math.round(x.r.gas/max*100):0;
+      return '<div class="cmp-col"><div class="cmp-bars">'+
+        '<div class="cmp-b v" style="height:'+hv+'%" title="Vendido '+money(x.r.vend)+'"></div>'+
+        '<div class="cmp-b g" style="height:'+hg+'%" title="Gastos '+money(x.r.gas)+'"></div></div>'+
+        '<div class="cmp-m">'+MESES[x.p.m]+'</div><div class="cmp-v">'+(x.r.vend?('$'+Math.round(x.r.vend)):'')+'</div></div>';
+    }).join('');
+    var trend='<div class="rep-sec">Últimos 6 meses</div><div class="cmp-chart">'+barras+'</div>'+
+      '<div class="cmp-ley"><span><i class="v"></i>Vendido</span><span><i class="g"></i>Gastos</span></div>';
+    var aviso = (A.n+B.n+C.n)===0 ? '<div class="rep-vacio">Aún no hay pedidos confirmados en estos meses.</div>' : '';
+    return '<div class="rep-nota">Compara este mes con el anterior y con el mismo mes del año pasado. '+
+      'Vendido incluye pedidos Confirmados, En producción, Listos, Entregados y facturados. Se agrupa por la fecha de la cotización.</div>'+
+      aviso+tabla+trend;
   }
 
   function vistaResumen(){
@@ -4574,6 +4659,13 @@ window.addEventListener('load', async ()=>{
       nom='por_cobrar';
       f.push(['orden','cliente','telefono','estado','total','abono','saldo','entrega']);
       cobrarLista().forEach(function(x){ f.push([x.c.num||'', x.c.cliente||x.c.empresa||'', x.c.telefono||'', x.est, x.total.toFixed(2), x.abono.toFixed(2), x.saldo.toFixed(2), x.entrega?x.entrega.toISOString().slice(0,10):'']); });
+    }else if(pestana==='comparar'){
+      nom='comparar_meses';
+      f.push(['mes','vendido','pedidos','ticket_promedio','facturado','gastos']);
+      var hoy=new Date(), peds=todosPedidos(), gs=gastos();
+      for(var i=11;i>=0;i--){ var dt=new Date(hoy.getFullYear(),hoy.getMonth()-i,1);
+        var pp=periodo(dt.getFullYear(),dt.getMonth()), r=cifras(pp,peds,gs);
+        f.push([pp.d.slice(0,7), r.vend.toFixed(2), r.n, r.prom.toFixed(2), r.fac.toFixed(2), r.gas.toFixed(2)]); }
     }else if(pestana==='gastos'){
       nom='gastos';
       f.push(['fecha','concepto','monto']);
@@ -6331,6 +6423,7 @@ window.addEventListener('load', function(){
       <button class="rep-tab" id="repTabG" onclick="repTab('gastos')">Gastos</button>
       <button class="rep-tab" id="repTabR" onclick="repTab('resumen')">Resumen</button>
       <button class="rep-tab" id="repTabC" onclick="repTab('cobrar')">Por cobrar</button>
+      <button class="rep-tab" id="repTabP" onclick="repTab('comparar')">Comparar</button>
     </div>
 
     <div class="rep-rango">

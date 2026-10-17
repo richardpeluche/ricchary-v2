@@ -13,7 +13,7 @@
    ⚠️ AL SUBIR CAMBIOS: sube el número de CACHE (v1 → v2 → ...).
    Es lo único que hay que tocar.
    ═══════════════════════════════════════════════════════════════ */
-const CACHE = 'ricchary-v2-2';
+const CACHE = 'ricchary-v2-3';
 
 // Rutas relativas: funcionan en cualquier repositorio sin editarlas.
 const ASSETS = [
