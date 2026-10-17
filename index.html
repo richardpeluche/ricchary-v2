@@ -1027,6 +1027,10 @@ body.pidiendo-impuesto .claim-sep{margin:6px auto}
             <li>📊 Reporte de ventas, gastos y ganancia real</li>
             <li>🎙️ Dictado por voz, incluso desde la pantalla de inicio</li>
             <li>📊 Exportar tu cotización a Excel (Pro)</li>
+            <li>📈 Comparar meses: este mes vs el anterior y el año pasado</li>
+            <li>💵 Costo y margen de ganancia en cada ítem (Pro)</li>
+            <li>📦 Stock de productos que se descuenta solo (Pro)</li>
+            <li>🚫 Estado Anulado para pedidos o facturas anuladas</li>
           </ul>
         </div>
         <div style="margin-top:14px;text-align:left;background:#eef2ff;border-radius:12px;padding:14px 18px">
@@ -1051,6 +1055,26 @@ body.pidiendo-impuesto .claim-sep{margin:6px auto}
           <li>💰 Gastos: a mano, importados del SRI o por voz</li>
           <li>📊 Reporte de ventas, gastos y ganancia real</li>
         </ul>
+      </div>
+
+      <!-- Slide: Herramientas nuevas (cómo se usan) -->
+      <div class="onb-slide" data-slide="2">
+        <h2>🧰 Herramientas nuevas</h2>
+        <p style="margin-bottom:12px">Así se usan. Las de costo y stock vienen apagadas: actívalas en ⚙️ Configuración.</p>
+        <div style="text-align:left;display:grid;gap:9px">
+          <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 13px;font-size:12.5px;color:#334155;line-height:1.5">
+            <b style="color:var(--brand)">📈 Comparar meses</b><br>Reporte → pestaña <b>Comparar</b>. Ves lo vendido, pedidos, ticket promedio, facturado y gastos de este mes contra el anterior y el mismo mes del año pasado, más un gráfico de 6 meses.
+          </div>
+          <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 13px;font-size:12.5px;color:#334155;line-height:1.5">
+            <b style="color:var(--brand)">💵 Costo y margen (Pro)</b><br>Configuración → <b>Ver costo y margen al cotizar</b>. Debajo de cada ítem verás tu costo y tu ganancia. Pon el <b>precio de fábrica</b> en tu catálogo para que salga solo. Es privado: no sale en el PDF ni en WhatsApp.
+          </div>
+          <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 13px;font-size:12.5px;color:#334155;line-height:1.5">
+            <b style="color:var(--brand)">📦 Stock de productos (Pro)</b><br>Configuración → <b>Llevar stock de productos</b>. Luego en Productos → Administrar → <b>Stock de productos</b> → <b>+ Ingreso</b>. Se descuenta solo con cada pedido <b>Entregado</b> del catálogo; lo Confirmado queda como comprometido. Pon un <b>mínimo</b> y te avisa.
+          </div>
+          <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 13px;font-size:12.5px;color:#334155;line-height:1.5">
+            <b style="color:var(--brand)">🚫 Pedido anulado</b><br>En el Historial cambia el estado a <b>Anulado</b>. No se borra, pero deja de contar en ventas, reportes, por cobrar y stock. Si anulaste una factura, hazlo primero en el SRI y luego aquí.
+          </div>
+        </div>
       </div>
 
       <!-- Slide 3: Versión Free -->
@@ -1078,6 +1102,8 @@ body.pidiendo-impuesto .claim-sep{margin:6px auto}
           <li>💻 App instalable para Windows (.exe) incluida</li>
           <li>📄 Facturación electrónica SRI (con Datil)</li>
           <li>☁️ Respaldo permanente en tu cuenta — nada que configurar</li>
+          <li>💵 Costo y margen de ganancia por ítem</li>
+          <li>📦 Stock de productos con alerta de mínimo</li>
         </ul>
         <button class="onb-pro-btn" id="onbProBtn">💬 Quiero la versión Pro</button>
       </div>
@@ -1139,7 +1165,7 @@ body.pidiendo-impuesto .claim-sep{margin:6px auto}
 
     <div class="onb-footer">
       <div class="onb-dots">
-        <span class="onb-dot active"></span><span class="onb-dot"></span><span class="onb-dot"></span><span class="onb-dot"></span><span class="onb-dot"></span><span class="onb-dot"></span><span class="onb-dot"></span>
+        <span class="onb-dot active"></span><span class="onb-dot"></span><span class="onb-dot"></span><span class="onb-dot"></span><span class="onb-dot"></span><span class="onb-dot"></span><span class="onb-dot"></span><span class="onb-dot"></span>
       </div>
       <div class="onb-nav">
         <button class="onb-skip" id="onbSkip">Saltar</button>
@@ -2968,6 +2994,8 @@ document.getElementById('excelBtn').onclick = window.exportarExcel;
     if(!localStorage.getItem('ricchary_v2_novedades_visto')){
       ob.classList.add('show');
     }
+    // Quien ya vio la guía antes: se le muestra UNA vez, directo en "Herramientas nuevas"
+    var _irNovedades = !!localStorage.getItem('ricchary_v2_novedades_visto') && !localStorage.getItem('ricchary_v2_novedades2_visto');
     let actual = 0;
     const slides = ob.querySelectorAll('.onb-slide');
     const dots = ob.querySelectorAll('.onb-dot');
@@ -2990,9 +3018,11 @@ document.getElementById('excelBtn').onclick = window.exportarExcel;
       ob.classList.remove('show');
       localStorage.setItem('onboarding_visto','1');
       localStorage.setItem('ricchary_v2_novedades_visto','1');
+      localStorage.setItem('ricchary_v2_novedades2_visto','1');
     }
 
     btnNext.onclick = ()=>{ if(actual < total-1) mostrar(actual+1); else cerrar(); };
+    if(_irNovedades){ mostrar(2); ob.classList.add('show'); }
     btnSkip.onclick = cerrar;
 
     const proBtn = document.getElementById('onbProBtn');
