@@ -160,6 +160,26 @@ input, textarea, select, [contenteditable]{
 }
 
 
+/* STOCK DE PRODUCTOS */
+#stkModal{z-index:1250}
+.stk-alerta{background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;border-radius:10px;padding:9px 12px;font-size:12.5px;margin-bottom:12px}
+.stk-row{border:1px solid #e2e8f0;border-radius:12px;padding:10px 12px;margin-bottom:8px;background:#fff}
+.stk-row.bajo{border-color:#fdba74;background:#fffbf5}
+.stk-top{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+.stk-top b{font-size:13.5px}.stk-top small{color:var(--muted);font-size:11px}
+.stk-nums{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:8px 0}
+.stk-n{background:#f8fafc;border-radius:8px;padding:6px;text-align:center}
+.stk-n span{display:block;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.03em}
+.stk-n b{font-size:16px}.stk-n.disp b{color:var(--brand)}.stk-row.bajo .stk-n.disp b{color:#c2410c}
+.stk-acc{display:flex;gap:6px;flex-wrap:wrap}
+.stk-acc button{flex:1;min-width:80px;padding:7px 8px;border-radius:8px;border:1px solid #cbd5e1;background:#fff;font-size:12px;font-weight:700;cursor:pointer;color:#334155}
+.stk-acc button.p{background:var(--brand);border-color:var(--brand);color:#fff}
+.stk-movs{margin-top:8px;font-size:11.5px;color:#475569;border-top:1px dashed #e2e8f0;padding-top:6px}
+.stk-movs div{display:flex;justify-content:space-between;gap:8px;padding:2px 0}
+.stk-movs button{border:0;background:none;color:#b91c1c;cursor:pointer;font-size:11px}
+.stk-sin{color:var(--muted);font-size:12px}
+.cat-row .stk-chip{font-size:10.5px;font-weight:800;padding:2px 7px;border-radius:999px;background:#e0f2fe;color:#075985;margin-left:6px;white-space:nowrap}
+.cat-row .stk-chip.bajo{background:#ffedd5;color:#9a3412}
 /* PEDIDO ANULADO */
 .hist-card.hist-anulada{opacity:.62;background:#f8fafc}
 .hist-card.hist-anulada .hist-card-total{text-decoration:line-through}
@@ -1351,6 +1371,12 @@ Este documento es de carácter contrato cliente-ofertador, que firmado constituy
       <input type="checkbox" id="mgCfgChk" style="margin-top:2px">
       <span><b>Ver costo y margen al cotizar</b> <span id="mgCfgPro" style="font-size:10px;font-weight:800;color:#b45309"></span><br>
       <span style="font-size:11.5px;color:var(--muted)">Muestra bajo cada ítem tu costo y la ganancia. Es privado: no sale en el PDF, la impresión ni el WhatsApp.</span></span>
+    </label>
+
+    <label id="stkCfgRow" style="display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border:1px solid var(--border);border-radius:8px;margin-bottom:16px;cursor:pointer;font-size:13px">
+      <input type="checkbox" id="stkCfgChk" style="margin-top:2px">
+      <span><b>Llevar stock de productos</b> <span id="stkCfgPro" style="font-size:10px;font-weight:800;color:#b45309"></span><br>
+      <span style="font-size:11.5px;color:var(--muted)">Ingresas tu stock y se descuenta solo con cada pedido Entregado del catálogo. Lo anulado no descuenta.</span></span>
     </label>
 
     <!-- ====== CUENTA / NUBE (V2 · Supabase) ====== -->
@@ -3829,7 +3855,7 @@ window.addEventListener('load', async ()=>{
     var out='';
     lst.forEach(function(p){
       var ya=enCot.indexOf(String(p.codigo))>-1;
-      out+='<div class="cat-row'+(ya?' ya':'')+'" onclick="catTocar('+p.id+')" title="'+(ya?'Ya está en la cotización':'Tocar para agregar')+'">'+
+      out+='<div class="cat-row'+(ya?' ya':'')+'" data-cod="'+esc(p.codigo||'')+'" onclick="catTocar('+p.id+')" title="'+(ya?'Ya está en la cotización':'Tocar para agregar')+'">'+
         '<div class="info"><span class="nm">'+esc(p.producto)+'</span>'+
         '<span class="mt">'+esc(p.codigo||'')+(p.categoria?' · '+esc(p.categoria):'')+'</span></div>'+
         '<span class="pr">'+money(p.precio)+'</span>'+
@@ -6577,6 +6603,7 @@ window.addEventListener('load', function(){
     <button class="modal-close" id="admProdClose">✕</button>
     <div class="cat-sub" id="catAdmSub"></div>
     <div id="catTope"></div>
+    <button type="button" id="stkAbrirBtn" class="cat-btn" style="display:none;width:100%;margin-bottom:12px" onclick="stkAbrir()">📦 Stock de productos</button>
     <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;margin-bottom:14px">
       <div style="font-size:12.5px;font-weight:700;color:var(--brand);margin-bottom:6px">📋 Cargar productos de tu oficio</div>
       <div style="font-size:11.5px;color:#64748b;margin-bottom:8px">Arranca con una lista lista de productos y servicios comunes — edítalos o bórralos luego.</div>
@@ -6630,6 +6657,192 @@ window.addEventListener('load', function(){
     }
     return _orig.apply(this, arguments);
   };
+})();
+</script>
+<div class="modal-overlay" id="stkModal">
+  <div class="hist-box">
+    <div class="hist-title">📦 Stock de productos</div>
+    <button class="modal-close" onclick="document.getElementById('stkModal').classList.remove('open')">✕</button>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:10px;line-height:1.5"><b>Stock</b>: lo que tienes (ya descontado lo Entregado). <b>Comprometido</b>: pedidos Confirmados, En producción o Listos. <b>Disponible</b>: lo que puedes ofrecer. Solo cuentan las líneas agregadas desde el catálogo y los pedidos con fecha desde tu primer ingreso.</div>
+    <input id="stkBuscar" placeholder="Buscar producto..." oninput="stkPintar()" style="width:100%;padding:9px 12px;border:1px solid #cbd5e1;border-radius:10px;font-size:13px;margin-bottom:10px;box-sizing:border-box">
+    <div id="stkCuerpo"></div>
+  </div>
+</div>
+<script>
+/* ═══ STOCK DE PRODUCTOS (opcional, Pro) ═══
+   El stock NO se resta a mano: se CALCULA = ingresos − líneas del catálogo en pedidos Entregados.
+   Pedido anulado o regresado de estado → se corrige solo. Datos: localStorage + Supabase (stock_movs / stock_cfg). */
+(function(){
+  var MK='ricchary_stock_movs', CK='ricchary_stock_min', ON='ricchary_stock_on';
+  function $(id){ return document.getElementById(id); }
+  function num(v){ var n=parseFloat(String(v==null?'':v).replace(',','.')); return isNaN(n)?0:n; }
+  function esc(t){ return String(t==null?'':t).replace(/[&<>"']/g,function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+  function fmt(n){ n=Math.round(n*100)/100; return (n%1? n.toFixed(2) : String(n)); }
+  function hoy(){ var d=new Date(); return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10); }
+  function pro(){ try{ return typeof esPro==='function' && esPro(); }catch(e){ return false; } }
+  function on(){ try{ return pro() && localStorage.getItem(ON)==='1'; }catch(e){ return false; } }
+  function movs(){ try{ return JSON.parse(localStorage.getItem(MK)||'[]'); }catch(e){ return []; } }
+  function saveMovs(a){ try{ localStorage.setItem(MK,JSON.stringify(a)); }catch(e){} }
+  function mins(){ try{ return JSON.parse(localStorage.getItem(CK)||'{}'); }catch(e){ return {}; } }
+  function saveMins(m){ try{ localStorage.setItem(CK,JSON.stringify(m)); }catch(e){} }
+  function prods(){
+    var ps=[]; try{ ps=JSON.parse(localStorage.getItem('ricchary_productos')||'[]'); }catch(e){}
+    var vis={}, out=[];
+    ps.forEach(function(p){ var c=String(p.codigo||''); if(!c||vis[c]) return; vis[c]=1; out.push(p); });
+    return out;
+  }
+  function fechaCot(c){
+    var f=String(c.fecha||''); if(/^\d{4}-\d{2}-\d{2}/.test(f)) return f.slice(0,10);
+    var t=c.id?new Date(c.id):null; return t&&!isNaN(t)?t.toISOString().slice(0,10):'';
+  }
+  /* Calcula stock por código */
+  function calcular(){
+    var res={}, ms=movs(), mn=mins();
+    ms.forEach(function(m){
+      var r=res[m.codigo]||(res[m.codigo]={ingresos:0,inicio:m.fecha,vendido:0,comp:0,movs:[]});
+      r.ingresos+=num(m.cantidad); if(m.fecha<r.inicio) r.inicio=m.fecha; r.movs.push(m);
+    });
+    var hist=[]; try{ hist=window.histFusionado?window.histFusionado():[]; }catch(e){}
+    var ACT=['Confirmado','En producción','Listo'];
+    hist.forEach(function(c){
+      var est=String(c.estado||'Cotizado'); if(est==='Anulado') return;
+      var ent=est==='Entregado', act=ACT.indexOf(est)>-1; if(!ent&&!act) return;
+      var f=fechaCot(c);
+      (c.items||[]).forEach(function(it){
+        var r=it&&it.cod?res[it.cod]:null; if(!r) return;
+        if(f && f<r.inicio) return;
+        var q=num(it.qty); if(ent) r.vendido+=q; else r.comp+=q;
+      });
+    });
+    Object.keys(res).forEach(function(k){
+      var r=res[k]; r.stock=r.ingresos-r.vendido; r.disp=r.stock-r.comp;
+      r.min=mn[k]!=null?num(mn[k]):null; r.bajo=r.min!=null && r.disp<=r.min;
+      r.movs.sort(function(a,b){ return String(b.fecha).localeCompare(String(a.fecha)) || (b.lid||0)-(a.lid||0); });
+    });
+    return res;
+  }
+  window.stkCalcular=calcular;
+
+  /* ---------- Nube ---------- */
+  async function uid(){ try{ var sb=window.__sbClient; if(!sb) return null; var r=await sb.auth.getSession(); return r&&r.data&&r.data.session?r.data.session.user.id:null; }catch(e){ return null; } }
+  async function subirPendientes(){
+    var u=await uid(); if(!u) return; var sb=window.__sbClient, ms=movs(), cambio=false;
+    for(var i=0;i<ms.length;i++){ var m=ms[i]; if(m.nid) continue;
+      try{ var r=await sb.from('stock_movs').insert({user_id:u,codigo:m.codigo,fecha:m.fecha,cantidad:num(m.cantidad),nota:m.nota||null}).select('id').single();
+        if(r&&!r.error&&r.data){ m.nid=r.data.id; cambio=true; } }catch(e){}
+    }
+    if(cambio) saveMovs(ms);
+  }
+  async function bajarNube(){
+    var u=await uid(); if(!u) return; var sb=window.__sbClient;
+    try{
+      var r=await sb.from('stock_movs').select('*').eq('user_id',u); if(r.error) return;
+      var loc=movs(), pend=loc.filter(function(m){ return !m.nid; });
+      var nube=(r.data||[]).map(function(x){ return {lid:new Date(x.creado).getTime(),nid:x.id,codigo:x.codigo,fecha:x.fecha,cantidad:num(x.cantidad),nota:x.nota||''}; });
+      saveMovs(nube.concat(pend));
+      var c=await sb.from('stock_cfg').select('*').eq('user_id',u);
+      if(!c.error){ var mn=mins(); (c.data||[]).forEach(function(x){ mn[x.codigo]=x.minimo; }); saveMins(mn); }
+    }catch(e){}
+    await subirPendientes();
+    refrescar();
+  }
+
+  /* ---------- Acciones ---------- */
+  window.stkMov=async function(codigo, tipo){
+    var p=prods().filter(function(x){ return String(x.codigo)===String(codigo); })[0]; if(!p) return;
+    var t=tipo==='ajuste'
+      ? prompt('Ajuste de stock de "'+p.producto+'"\n\nEscribe la cantidad a SUMAR (ej. 5) o a RESTAR (ej. -3).\nÚsalo para conteo físico, mermas o devoluciones.','')
+      : prompt('Ingreso de stock de "'+p.producto+'"\n\n¿Cuántas unidades ingresan?','');
+    if(t===null) return; var q=num(t); if(!q){ alert('Cantidad no válida.'); return; }
+    if(tipo!=='ajuste' && q<0){ alert('Para restar usa Ajuste.'); return; }
+    var nota=tipo==='ajuste'?'Ajuste':'Ingreso';
+    var ms=movs(); ms.push({lid:Date.now(),codigo:String(codigo),fecha:hoy(),cantidad:q,nota:nota}); saveMovs(ms);
+    refrescar(); subirPendientes();
+  };
+  window.stkMin=async function(codigo){
+    var mn=mins(), t=prompt('Stock mínimo (avisa cuando el disponible llegue a este número).\nDéjalo vacío para no avisar.', mn[codigo]!=null?mn[codigo]:'');
+    if(t===null) return; var v=String(t).trim()===''?null:num(t);
+    if(v==null) delete mn[codigo]; else mn[codigo]=v; saveMins(mn); refrescar();
+    var u=await uid(); if(!u) return;
+    try{ if(v==null) await window.__sbClient.from('stock_cfg').delete().eq('user_id',u).eq('codigo',String(codigo));
+         else await window.__sbClient.from('stock_cfg').upsert({user_id:u,codigo:String(codigo),minimo:v,actualizado:new Date().toISOString()},{onConflict:'user_id,codigo'}); }catch(e){}
+  };
+  window.stkBorrarMov=async function(lid){
+    var ms=movs(), m=ms.filter(function(x){ return String(x.lid)===String(lid); })[0]; if(!m) return;
+    if(!confirm('¿Eliminar este movimiento ('+(m.cantidad>0?'+':'')+fmt(m.cantidad)+' del '+m.fecha+')?')) return;
+    saveMovs(ms.filter(function(x){ return x!==m; })); refrescar();
+    var u=await uid(); if(u && m.nid){ try{ await window.__sbClient.from('stock_movs').delete().eq('user_id',u).eq('id',m.nid); }catch(e){} }
+  };
+  var abiertos={};
+  window.stkVerMovs=function(c){ abiertos[c]=!abiertos[c]; stkPintar(); };
+
+  /* ---------- Pantalla ---------- */
+  window.stkPintar=function(){
+    var cu=$('stkCuerpo'); if(!cu) return;
+    var q=(($('stkBuscar')||{}).value||'').toLowerCase(), r=calcular();
+    var ps=prods().filter(function(p){ return !q || (p.producto+' '+p.codigo).toLowerCase().indexOf(q)>-1; });
+    ps.sort(function(a,b){ var ra=r[a.codigo], rb=r[b.codigo]; return (rb?1:0)-(ra?1:0) || ((rb&&rb.bajo)?1:0)-((ra&&ra.bajo)?1:0); });
+    var bajos=Object.keys(r).filter(function(k){ return r[k].bajo; }).length;
+    var h=bajos?'<div class="stk-alerta">⚠️ '+bajos+' producto'+(bajos>1?'s':'')+' en o bajo el mínimo.</div>':'';
+    ps.forEach(function(p){
+      var x=r[p.codigo], c=esc(p.codigo);
+      h+='<div class="stk-row'+(x&&x.bajo?' bajo':'')+'"><div class="stk-top"><b>'+esc(p.producto)+'</b><small>'+c+(x&&x.min!=null?' · mín '+fmt(x.min):'')+'</small></div>';
+      if(x){
+        h+='<div class="stk-nums"><div class="stk-n"><span>Stock</span><b>'+fmt(x.stock)+'</b></div>'+
+           '<div class="stk-n"><span>Comprometido</span><b>'+fmt(x.comp)+'</b></div>'+
+           '<div class="stk-n disp"><span>Disponible</span><b>'+fmt(x.disp)+'</b></div></div>';
+      }else h+='<div class="stk-sin" style="margin:6px 0">Sin control de stock. Haz un ingreso para empezar.</div>';
+      h+='<div class="stk-acc"><button class="p" onclick="stkMov(\''+c+'\',\'ingreso\')">+ Ingreso</button>'+
+         (x?'<button onclick="stkMov(\''+c+'\',\'ajuste\')">Ajuste</button><button onclick="stkMin(\''+c+'\')">Mínimo</button><button onclick="stkVerMovs(\''+c+'\')">'+(abiertos[p.codigo]?'Ocultar':'Movimientos')+'</button>':'')+'</div>';
+      if(x && abiertos[p.codigo]){
+        h+='<div class="stk-movs">'+x.movs.map(function(m){ return '<div><span>'+esc(m.fecha)+' · '+esc(m.nota||'')+' <b>'+(m.cantidad>0?'+':'')+fmt(m.cantidad)+'</b>'+(m.nid?'':' <small style="color:#b45309">(sin subir)</small>')+'</span><button onclick="stkBorrarMov(\''+m.lid+'\')">Eliminar</button></div>'; }).join('')+
+           '<div><span>Entregado desde '+esc(x.inicio)+'</span><b>−'+fmt(x.vendido)+'</b></div></div>';
+      }
+      h+='</div>';
+    });
+    cu.innerHTML=h||'<div class="stk-sin">No tienes productos en el catálogo.</div>';
+  };
+  window.stkAbrir=function(){ if(!on()) return; stkPintar(); $('stkModal').classList.add('open'); bajarNube(); };
+
+  /* Disponible junto a cada producto en el selector del catálogo */
+  function chipsSelector(){
+    if(!on()) return; var r=calcular();
+    document.querySelectorAll('#catLista .cat-row[data-cod]').forEach(function(row){
+      var x=r[row.getAttribute('data-cod')]; if(!x || row.querySelector('.stk-chip')) return;
+      var s=document.createElement('span'); s.className='stk-chip'+(x.bajo?' bajo':''); s.textContent='Disp. '+fmt(x.disp);
+      var nm=row.querySelector('.nm'); if(nm) nm.appendChild(s);
+    });
+  }
+  if(typeof window.catPintarSelector==='function'){
+    var _sel=window.catPintarSelector;
+    window.catPintarSelector=function(){ var r=_sel.apply(this,arguments); try{ chipsSelector(); }catch(e){} return r; };
+  }
+  function refrescar(){
+    var b=$('stkAbrirBtn'); if(b) b.style.display=on()?'block':'none';
+    if($('stkModal') && $('stkModal').classList.contains('open')) stkPintar();
+  }
+  function aviso(){
+    if(!on()) return; var r=calcular(), n=Object.keys(r).filter(function(k){ return r[k].bajo; }).length;
+    if(!n) return;
+    try{ var k='ricchary_stock_aviso_'+hoy(); if(sessionStorage.getItem(k)) return; sessionStorage.setItem(k,'1'); }catch(e){}
+    var d=document.createElement('div');
+    d.style.cssText='position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:1400;background:#9a3412;color:#fff;padding:11px 16px;border-radius:12px;font-size:13px;font-weight:700;box-shadow:0 8px 24px rgba(0,0,0,.25);cursor:pointer;max-width:92vw';
+    d.textContent='⚠️ '+n+' producto'+(n>1?'s':'')+' con stock bajo · Ver';
+    d.onclick=function(){ d.remove(); stkAbrir(); };
+    document.body.appendChild(d); setTimeout(function(){ if(d.parentNode) d.remove(); },9000);
+  }
+  function cfgSync(){
+    var chk=$('stkCfgChk'), tag=$('stkCfgPro'); if(!chk) return;
+    chk.disabled=!pro(); chk.checked=on(); if(tag) tag.textContent=pro()?'':'SOLO PRO';
+  }
+  window.addEventListener('load',function(){
+    var chk=$('stkCfgChk');
+    if(chk) chk.addEventListener('change',function(){ try{ localStorage.setItem(ON,chk.checked?'1':'0'); }catch(e){} refrescar(); if(chk.checked) bajarNube(); });
+    var cb=$('cfgBtn'); if(cb) cb.addEventListener('click',cfgSync);
+    var ab=$('prodBtn'); 
+    cfgSync(); refrescar();
+    if(on()){ setTimeout(bajarNube,5000); setTimeout(aviso,9000); }
+  });
 })();
 </script>
 </body></html>
