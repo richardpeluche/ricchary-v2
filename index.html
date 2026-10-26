@@ -1322,8 +1322,7 @@ body.pidiendo-impuesto .claim-sep{margin:6px auto}
   <div class="section-title">Observaciones y Condiciones</div>
   <div class="footer-notes">
     <div style="font-size:13px;font-weight:600;margin-bottom:6px">🚚 Tiempo de entrega: <input id="fDiasEntrega" type="number" min="1" max="365" value="30" style="width:55px;text-align:center;font-weight:700;padding:2px 4px;border:0.5px solid var(--border);border-radius:4px"> días laborables</div>
-    <textarea id="fNotas" style="height: 103px;">Abono 50% al confirmar el pedido. El plazo de entrega corre a partir de la confirmación del pedido y aprobación del diseño.
-Este documento es de carácter contrato cliente-ofertador, que firmado constituye un documento de COMPROMISO.</textarea>
+    <textarea id="fNotas" style="height: 103px;" placeholder="Observaciones de esta cotización (opcional). Si agregas chaquetas, las condiciones se ponen solas."></textarea>
   </div>
 
   <div style="margin-top:1.5rem">
@@ -1838,24 +1837,28 @@ var COND_CHAQUETAS = COND_DEFAULT + '\n\n'
   + 'Devoluciones por parte nuestra: el plazo de devolución es de 8 días hábiles. Si el cliente decide declinar el pedido ya confirmado, la devolución se realiza en 15 días hábiles, ya que el material fue adquirido con anticipación.\n\n'
   + 'Los reclamos se reciben hasta 10 días después de la entrega; pasado ese plazo no son negociables.\n\n'
   + 'La talla es responsabilidad exclusiva del cliente, pues la producción se guía por el listado de tallas proporcionado por él mismo.';
+/* Condiciones SOLO para chaquetas (oct-2026):
+   - Cotización normal: observaciones vacías; lo que escribas queda en ESA cotización.
+   - Si hay una chaqueta, se AGREGAN las condiciones de chaquetas debajo de lo que escribiste.
+   - Si quitas la chaqueta, se retira ese bloque (si no lo modificaste). Nunca se borra tu texto.
+   - Al abrir una cotización guardada no se toca nada. */
 function condicionesAuto(){
+  if(window._cargandoCot) return;
   var n = document.getElementById('fNotas'); if(!n) return;
   var actual = n.value;
-  var base = localStorage.getItem('cfg_condiciones') || COND_DEFAULT;
   var hayChaqueta = Array.prototype.some.call(document.querySelectorAll('#itemsBody .item-row input[type="text"]'),
     function(i){ return /chaqueta/i.test(i.value||''); });
-  if(hayChaqueta && actual===base) n.value = COND_CHAQUETAS;
-  else if(!hayChaqueta && actual===COND_CHAQUETAS) n.value = base;
-  // Cambio por detección automática, no por el usuario: no se guarda como nueva condición por defecto.
+  var tiene = actual.indexOf(COND_CHAQUETAS) > -1;
+  if(hayChaqueta && !tiene){
+    n.value = actual.trim() ? actual.replace(/\s+$/,'') + '\n\n' + COND_CHAQUETAS : COND_CHAQUETAS;
+  }else if(!hayChaqueta && tiene){
+    n.value = actual.replace(COND_CHAQUETAS,'').replace(/\s+$/,'');
+  }
 }
 window.addEventListener('load', ()=>{
-  const n = document.getElementById('fNotas');
   const dd = document.getElementById('fDiasEntrega');
-  const savedN = localStorage.getItem('cfg_condiciones');
-  if(n && savedN) n.value = savedN;
   if(dd) dd.value = '30'; // valor por defecto en cotización nueva
-  if(n) n.addEventListener('input', ()=>localStorage.setItem('cfg_condiciones', n.value));
-  // (los días de entrega ya NO se guardan global; van por cada cotización)
+  try{ localStorage.removeItem('cfg_condiciones'); }catch(e){}   // ya no hay texto por defecto global
 });
 
 // ===== ESTADOS DEL PEDIDO (RICCHARY) =====
@@ -2032,6 +2035,7 @@ function showHistSaveBadge(){
 // Carga una cotización del historial al formulario
 function cargarCotizacion(cot){
   window._editandoExistente = true;
+  window._cargandoCot = true; setTimeout(function(){ window._cargandoCot = false; }, 0);
   const _dO=document.getElementById('docOrden'); if(_dO) _dO.value = cot.num||'';
   if(window.marcarBotonFacturado) setTimeout(window.marcarBotonFacturado, 50);
   document.getElementById('fFecha').value = cot.fecha||'';
@@ -2045,7 +2049,7 @@ function cargarCotizacion(cot){
   document.getElementById('fMail').value = cot.mail||'';
   document.getElementById('fAtencion').value = cot.atencion||'';
   // Notas: restaurar de local siempre; de la nube solo si trae contenido (no pisa las condiciones por defecto)
-  if(cot.notas!==undefined && (!cot._cloud || cot.notas)) document.getElementById('fNotas').value = cot.notas||'';
+  document.getElementById('fNotas').value = cot.notas||'';   // cada cotización trae sus propias observaciones
   document.getElementById('ivaSel').value = cot.iva||'0';
   const _dE=document.getElementById('fDiasEntrega'); if(_dE) _dE.value = cot.diasEntrega||'30';
   // Limpiar e insertar ítems
@@ -3167,7 +3171,7 @@ window.nuevaCotizacion = function(){
                 || (document.getElementById('itemsBody')?.children.length||0) > 0;
   if(hayDatos && !confirm('¿Empezar una cotización nueva?\n\nSe limpiará el formulario. Asegúrate de haber guardado la actual.')) return;
 
-  ['fCliente','fEmpresa','fTelefono','fDireccion','fCedula','fMail','fAtencion','fAbono']
+  ['fCliente','fEmpresa','fTelefono','fDireccion','fCedula','fMail','fAtencion','fAbono','fNotas']
     .forEach(id=>{ const e=document.getElementById(id); if(e) e.value=''; });
 
   const st=document.getElementById('rucStatus'); if(st) st.style.display='none';
@@ -5795,62 +5799,92 @@ window.addEventListener('load', async ()=>{
   function posponer(tipo,num,dias){ var m=mapa(); var k=tipo+':'+num; m[k]={hasta:Date.now()+dias*86400000}; guardar(m); }
   function marcar(tipo,num,v){ var m=mapa(); m[tipo+':'+num]={v:v}; guardar(m); }
   function bloqueada(tipo,num){ var r=mapa()[tipo+':'+num]; if(!r) return false; if(r.v) return true; return r.hasta && Date.now()<r.hasta; }
-  var abierto=false, cola=[];
-
-  function caja(titulo,html,botones){
-    var ov=document.createElement('div'); ov.className='modal-overlay open'; ov.style.zIndex=1300;
-    var bx=document.createElement('div'); bx.className='modal-box';
-    bx.innerHTML='<div class="modal-title" style="margin-bottom:10px">'+titulo+'</div><div style="font-size:14px;line-height:1.6;color:#334155;margin-bottom:18px">'+html+'</div>';
-    var fila=document.createElement('div'); fila.style.cssText='display:flex;flex-direction:column;gap:8px';
-    botones.forEach(function(b){
-      var el=document.createElement('button'); el.textContent=b.t;
-      el.style.cssText='padding:12px;border-radius:10px;border:'+(b.main?'0':'1px solid #cbd5e1')+';font-weight:700;font-size:14px;cursor:pointer;background:'+(b.main?b.bg:'#fff')+';color:'+(b.main?'#fff':'#475569');
-      el.onclick=function(){ document.body.removeChild(ov); abierto=false; try{ b.f(); }catch(e){} setTimeout(siguiente,250); };
-      fila.appendChild(el);
-    });
-    bx.appendChild(fila); ov.appendChild(bx); document.body.appendChild(ov); abierto=true;
-  }
+  /* Oct-2026: en vez de ventanas encadenadas al abrir la app, UN aviso agrupado
+     ("Tienes N pedidos por revisar"). Al tocarlo se abre la lista y se responde cada uno. */
+  var pend=[], cerradoSesion=false;
+  function esc(t){ return String(t==null?'':t).replace(/[&<>"']/g,function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
   function resumen(c){
     var ab=parseFloat(String(c.abono||'').replace(',','.'))||0;
-    return '<b>N° '+c.num+'</b> · '+(c.cliente||c.empresa||'Sin nombre')+(c.total?' · '+c.total:'')+(ab>0?'<br>Abono registrado: $'+ab.toFixed(2):'');
+    return '<b>N° '+esc(c.num)+'</b> · '+esc(c.cliente||c.empresa||'Sin nombre')+(c.total?' · '+esc(c.total):'')+(ab>0?' · abono $'+ab.toFixed(2):'');
   }
   function cambiar(num,est){
     try{ var p=window.cambiarEstado(num,est); if(p&&p.catch) p.catch(function(){}); }catch(e){}
     try{ window.segActualizar(); }catch(e){}
   }
-  function siguiente(){
-    if(abierto||!cola.length) return;
-    var t=cola.shift();
-    if(t.tipo==='conf'){
-      caja('¿Pedido confirmado?','Pasaron '+t.dias+' días desde la proforma.<br>'+resumen(t.c),[
-        {t:'Sí, está confirmado',main:1,bg:'#1565C0',f:function(){ marcar('conf',t.c.num,'si'); cambiar(t.c.num,'Confirmado'); }},
-        {t:'No, enviar a Seguimiento',main:1,bg:'#25D366',f:function(){ marcar('conf',t.c.num,'no'); try{ window.segActualizar(); renderHistorial(); }catch(e){} }},
-        {t:'Preguntar luego (3 días)',f:function(){ posponer('conf',t.c.num,3); }}
-      ]);
-    }else{
-      caja('¿Pedido entregado?','Ya pasó la fecha de entrega ('+t.fecha+').<br>'+resumen(t.c),[
-        {t:'Sí, fue entregado',main:1,bg:'#22c55e',f:function(){ marcar('ent',t.c.num,'si'); cambiar(t.c.num,'Entregado'); }},
-        {t:'Aún no (preguntar en 2 días)',f:function(){ posponer('ent',t.c.num,2); }}
-      ]);
-    }
-  }
-  window.cierreRevisar=function(){
-    if(abierto||cola.length) return 0;
-    var lista=[]; try{ lista=window.histFusionado(); }catch(e){ return 0; }
+  function calcular(){
+    var out=[], lista=[]; try{ lista=window.histFusionado(); }catch(e){ return out; }
     var ahora=Date.now();
     lista.forEach(function(c){
       var est=String(c.estado||'Cotizado');
       if(est==='Cotizado'){
         var si=window.segInfo(c);
-        if(si.pendiente && !bloqueada('conf',c.num)) cola.push({tipo:'conf',c:c,dias:si.dias});
+        if(si.pendiente && !bloqueada('conf',c.num)) out.push({tipo:'conf',c:c,dias:si.dias});
       }else if(['Confirmado','En producción','Listo'].indexOf(est)>-1){
         var ag=null; try{ ag=yaAgendado(c.num); }catch(e){}
         var te=ag&&ag.entrega?Date.parse(ag.entrega):NaN;
-        if(!isNaN(te) && ahora>te+86400000 && !bloqueada('ent',c.num)) cola.push({tipo:'ent',c:c,fecha:new Date(te).toLocaleDateString('es-EC')});
+        if(!isNaN(te) && ahora>te+86400000 && !bloqueada('ent',c.num)) out.push({tipo:'ent',c:c,fecha:new Date(te).toLocaleDateString('es-EC')});
       }
     });
-    cola=cola.slice(0,6); siguiente(); return cola.length;
+    return out;
+  }
+  function barra(){
+    var b=document.getElementById('cierreBar');
+    if(!pend.length || cerradoSesion || (document.getElementById('cierrePanel')||{}).className==='modal-overlay open'){ if(b) b.remove(); return; }
+    if(!b){
+      b=document.createElement('div'); b.id='cierreBar';
+      b.style.cssText='position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:1250;display:flex;align-items:center;gap:4px;background:#1e293b;color:#fff;border-radius:999px;box-shadow:0 8px 24px rgba(0,0,0,.25);font-size:13px;font-weight:700;max-width:94vw';
+      b.innerHTML='<button id="cierreBarAbrir" style="background:none;border:0;color:#fff;font:inherit;padding:10px 6px 10px 16px;cursor:pointer"></button>'+
+                  '<button id="cierreBarX" title="Ocultar" style="background:none;border:0;color:#94a3b8;font-size:16px;padding:8px 14px 8px 6px;cursor:pointer">✕</button>';
+      document.body.appendChild(b);
+      b.querySelector('#cierreBarAbrir').onclick=abrirPanel;
+      b.querySelector('#cierreBarX').onclick=function(){ cerradoSesion=true; b.remove(); };
+    }
+    b.querySelector('#cierreBarAbrir').textContent='🔔 Tienes '+pend.length+' pedido'+(pend.length>1?'s':'')+' por revisar · Revisar';
+  }
+  function abrirPanel(){
+    var ov=document.getElementById('cierrePanel');
+    if(!ov){
+      ov=document.createElement('div'); ov.id='cierrePanel'; ov.style.zIndex=1300;
+      ov.innerHTML='<div class="modal-box" style="max-width:480px"><div class="modal-title" style="margin-bottom:6px">🔔 Pedidos por revisar</div>'+
+        '<button class="modal-close" id="cierrePanelX">✕</button>'+
+        '<div style="font-size:12px;color:#64748b;margin-bottom:12px">Responde los que quieras. Los que dejes se quedan aquí para después.</div><div id="cierreLista"></div></div>';
+      document.body.appendChild(ov);
+      ov.querySelector('#cierrePanelX').onclick=cerrarPanel;
+      ov.onclick=function(e){ if(e.target===ov) cerrarPanel(); };
+    }
+    ov.className='modal-overlay open'; pintarPanel(); barra();
+  }
+  function cerrarPanel(){ var ov=document.getElementById('cierrePanel'); if(ov) ov.className='modal-overlay'; barra(); }
+  function btn(t,bg,main){ return 'style="flex:1;min-width:110px;padding:9px 8px;border-radius:9px;font-weight:700;font-size:12.5px;cursor:pointer;'+(main?'border:0;background:'+bg+';color:#fff':'border:1px solid #cbd5e1;background:#fff;color:#475569')+'"'; }
+  function pintarPanel(){
+    var l=document.getElementById('cierreLista'); if(!l) return;
+    if(!pend.length){ l.innerHTML='<div style="text-align:center;color:#16a34a;font-weight:700;padding:18px 0">Todo al día ✓</div>'; return; }
+    l.innerHTML=pend.map(function(t,i){
+      var head = t.tipo==='conf'
+        ? '<div style="font-size:11px;font-weight:800;color:#1565C0;letter-spacing:.03em">¿CONFIRMADO? · '+t.dias+' días desde la proforma</div>'
+        : '<div style="font-size:11px;font-weight:800;color:#16a34a;letter-spacing:.03em">¿ENTREGADO? · entrega era el '+esc(t.fecha)+'</div>';
+      var bs = t.tipo==='conf'
+        ? '<button data-i="'+i+'" data-a="si" '+btn('','#1565C0',1)+'>Sí, confirmado</button><button data-i="'+i+'" data-a="no" '+btn('','#25D366',1)+'>No, a Seguimiento</button><button data-i="'+i+'" data-a="luego" '+btn()+'>En 3 días</button>'
+        : '<button data-i="'+i+'" data-a="ent" '+btn('','#22c55e',1)+'>Sí, entregado</button><button data-i="'+i+'" data-a="luego" '+btn()+'>Aún no (2 días)</button>';
+      return '<div style="border:1px solid #e2e8f0;border-radius:12px;padding:10px 12px;margin-bottom:8px">'+head+
+        '<div style="font-size:13.5px;color:#334155;margin:4px 0 8px">'+resumen(t.c)+'</div><div style="display:flex;gap:6px;flex-wrap:wrap">'+bs+'</div></div>';
+    }).join('');
+    l.querySelectorAll('button[data-i]').forEach(function(b){ b.onclick=function(){ responder(+b.getAttribute('data-i'), b.getAttribute('data-a')); }; });
+  }
+  function responder(i,a){
+    var t=pend[i]; if(!t) return; var n=t.c.num;
+    if(a==='si'){ marcar('conf',n,'si'); cambiar(n,'Confirmado'); }
+    else if(a==='no'){ marcar('conf',n,'no'); try{ window.segActualizar(); renderHistorial(); }catch(e){} }
+    else if(a==='ent'){ marcar('ent',n,'si'); cambiar(n,'Entregado'); }
+    else if(a==='luego'){ posponer(t.tipo,n,t.tipo==='conf'?3:2); }
+    pend.splice(i,1); pintarPanel(); barra();
+  }
+  window.cierreRevisar=function(){
+    pend=calcular(); barra();
+    if((document.getElementById('cierrePanel')||{}).className==='modal-overlay open') pintarPanel();
+    return pend.length;
   };
+  window.cierreAbrir=abrirPanel;
   window.addEventListener('load',function(){ setTimeout(window.cierreRevisar,4000); setTimeout(window.cierreRevisar,12000); });
 })();
 </script>
@@ -6856,7 +6890,7 @@ window.addEventListener('load', function(){
     if(!n) return;
     try{ var k='ricchary_stock_aviso_'+hoy(); if(sessionStorage.getItem(k)) return; sessionStorage.setItem(k,'1'); }catch(e){}
     var d=document.createElement('div');
-    d.style.cssText='position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:1400;background:#9a3412;color:#fff;padding:11px 16px;border-radius:12px;font-size:13px;font-weight:700;box-shadow:0 8px 24px rgba(0,0,0,.25);cursor:pointer;max-width:92vw';
+    d.style.cssText='position:fixed;left:50%;bottom:72px;transform:translateX(-50%);z-index:1400;background:#9a3412;color:#fff;padding:11px 16px;border-radius:12px;font-size:13px;font-weight:700;box-shadow:0 8px 24px rgba(0,0,0,.25);cursor:pointer;max-width:92vw';
     d.textContent='⚠️ '+n+' producto'+(n>1?'s':'')+' con stock bajo · Ver';
     d.onclick=function(){ d.remove(); stkAbrir(); };
     document.body.appendChild(d); setTimeout(function(){ if(d.parentNode) d.remove(); },9000);
