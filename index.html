@@ -153,7 +153,7 @@ input, textarea, select, [contenteditable]{
 
 @media print{
   .topbar,.action-bar,.add-row-btn,.del-btn,.sig-controls,.add-img-slot,.img-slot-remove,button{display:none!important}
-  .mg-line,#mgResumen{display:none!important}
+  .mg-line,#mgResumen,#rucStatus,#cierreBar{display:none!important}
   .logo-banner{position:static;box-shadow:none;border-bottom:2px solid var(--brand)}
   body{background:#fff}#app{padding:0;max-width:100%}
   .card{box-shadow:none;border:0.5px solid #ccc;page-break-inside:avoid}
@@ -2718,7 +2718,7 @@ document.getElementById('waBtn').onclick=()=>{
   const abonoTxt = cot.abono ? `\n✅ Abono: $${cot.abono}\n⏳ Saldo: ${cot.saldo}` : '';
   // Fecha de entrega (si el pedido ya fue agendado)
   const _ag = yaAgendado(cot.num);
-  let entregaTxt = '';
+  let entregaTxt = '\n🚚 *Fecha de entrega:* por confirmar';
   if(_ag && _ag.entrega){
     const d = new Date(_ag.entrega);
     if(!isNaN(d)){
