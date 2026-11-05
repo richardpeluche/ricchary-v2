@@ -1322,7 +1322,7 @@ body.pidiendo-impuesto .claim-sep{margin:6px auto}
   <div class="section-title">Observaciones y Condiciones</div>
   <div class="footer-notes">
     <div style="font-size:13px;font-weight:600;margin-bottom:6px">🚚 Tiempo de entrega: <input id="fDiasEntrega" type="number" min="1" max="365" value="30" style="width:55px;text-align:center;font-weight:700;padding:2px 4px;border:0.5px solid var(--border);border-radius:4px"> días laborables</div>
-    <textarea id="fNotas" style="height: 103px;" placeholder="Observaciones de esta cotización (opcional). Si agregas chaquetas, las condiciones se ponen solas."></textarea>
+    <textarea id="fNotas" style="height: 103px;" placeholder="Observaciones y condiciones de esta cotización."></textarea>
   </div>
 
   <div style="margin-top:1.5rem">
@@ -1832,6 +1832,7 @@ function diasEntrega(){
   return parseInt(document.getElementById('fDiasEntrega')?.value,10) || 30;
 }
 var COND_DEFAULT = 'Abono 50% al confirmar el pedido. El plazo de entrega corre a partir de la confirmación del pedido y aprobación del diseño.\nEste documento es de carácter contrato cliente-ofertador, que firmado constituye un documento de COMPROMISO.';
+var COND_GENERAL = 'Proforma válida por 15 días. El pedido se confirma con el 50% de abono y la aprobación del diseño; el saldo se cancela a la entrega. El plazo de entrega corre desde la confirmación. Este documento firmado constituye un compromiso entre las partes.';
 var COND_CHAQUETAS = COND_DEFAULT + '\n\n'
   + 'El plazo de entrega es aproximado y puede extenderse por situaciones externas — por ejemplo, si no existe en stock la tela del tono exacto del pedido y debe fabricarse.\n\n'
   + 'Devoluciones por parte nuestra: el plazo de devolución es de 8 días hábiles. Si el cliente decide declinar el pedido ya confirmado, la devolución se realiza en 15 días hábiles, ya que el material fue adquirido con anticipación.\n\n'
@@ -1848,16 +1849,19 @@ function condicionesAuto(){
   var actual = n.value;
   var hayChaqueta = Array.prototype.some.call(document.querySelectorAll('#itemsBody .item-row input[type="text"]'),
     function(i){ return /chaqueta/i.test(i.value||''); });
-  var tiene = actual.indexOf(COND_CHAQUETAS) > -1;
+  var tiene = actual.indexOf(COND_CHAQUETAS) > -1, gen = actual.indexOf(COND_GENERAL) > -1;
   if(hayChaqueta && !tiene){
-    n.value = actual.trim() ? actual.replace(/\s+$/,'') + '\n\n' + COND_CHAQUETAS : COND_CHAQUETAS;
+    if(gen) n.value = actual.replace(COND_GENERAL, COND_CHAQUETAS);
+    else n.value = actual.trim() ? actual.replace(/\s+$/,'') + '\n\n' + COND_CHAQUETAS : COND_CHAQUETAS;
   }else if(!hayChaqueta && tiene){
-    n.value = actual.replace(COND_CHAQUETAS,'').replace(/\s+$/,'');
+    n.value = actual.replace(COND_CHAQUETAS, COND_GENERAL);
   }
 }
 window.addEventListener('load', ()=>{
   const dd = document.getElementById('fDiasEntrega');
   if(dd) dd.value = '30'; // valor por defecto en cotización nueva
+  const nn = document.getElementById('fNotas');
+  if(nn && !nn.value.trim() && !window._editandoExistente){ nn.value = COND_GENERAL; condicionesAuto(); }
   try{ localStorage.removeItem('cfg_condiciones'); }catch(e){}   // ya no hay texto por defecto global
 });
 
@@ -2718,7 +2722,7 @@ document.getElementById('waBtn').onclick=()=>{
   const abonoTxt = cot.abono ? `\n✅ Abono: $${cot.abono}\n⏳ Saldo: ${cot.saldo}` : '';
   // Fecha de entrega (si el pedido ya fue agendado)
   const _ag = yaAgendado(cot.num);
-  let entregaTxt = '\n🚚 *Fecha de entrega:* por confirmar';
+  let entregaTxt = '\n🚚 *Entrega:* coordinaremos la fecha contigo al confirmar tu pedido';
   if(_ag && _ag.entrega){
     const d = new Date(_ag.entrega);
     if(!isNaN(d)){
@@ -3173,6 +3177,7 @@ window.nuevaCotizacion = function(){
 
   ['fCliente','fEmpresa','fTelefono','fDireccion','fCedula','fMail','fAtencion','fAbono','fNotas']
     .forEach(id=>{ const e=document.getElementById(id); if(e) e.value=''; });
+  { const nn=document.getElementById('fNotas'); if(nn) nn.value = COND_GENERAL; }
 
   const st=document.getElementById('rucStatus'); if(st) st.style.display='none';
   const iv=document.getElementById('ivaSel'); if(iv) iv.value='0';
