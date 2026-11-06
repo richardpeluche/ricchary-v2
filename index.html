@@ -153,7 +153,7 @@ input, textarea, select, [contenteditable]{
 
 @media print{
   .topbar,.action-bar,.add-row-btn,.del-btn,.sig-controls,.add-img-slot,.img-slot-remove,button{display:none!important}
-  .mg-line,#mgResumen,#rucStatus,#cierreBar{display:none!important}
+  .mg-line,#mgResumen,#rucStatus,#cierreBar,#provModal{display:none!important}
   .logo-banner{position:static;box-shadow:none;border-bottom:2px solid var(--brand)}
   body{background:#fff}#app{padding:0;max-width:100%}
   .card{box-shadow:none;border:0.5px solid #ccc;page-break-inside:avoid}
@@ -1026,7 +1026,7 @@ body.pidiendo-impuesto .claim-sep{margin:6px auto}
             <li>💰 Gastos: a mano, importados del SRI o por voz</li>
             <li>📊 Reporte de ventas, gastos y ganancia real</li>
             <li>🎙️ Dictado por voz, incluso desde la pantalla de inicio</li>
-            <li>📊 Exportar tu cotización a Excel (Pro)</li>
+            <li>📦 Consultar a tu proveedor por WhatsApp desde la proforma</li>
             <li>📈 Comparar meses: este mes vs el anterior y el año pasado</li>
             <li>💵 Costo y margen de ganancia en cada ítem (Pro)</li>
             <li>📦 Stock de productos que se descuenta solo (Pro)</li>
@@ -1357,7 +1357,7 @@ body.pidiendo-impuesto .claim-sep{margin:6px auto}
   <button class="hist-btn" id="saveBtn" style="background:var(--brand);color:#fff;border-color:var(--brand)" title="Guardar cambios de esta cotización"><svg class="ic" aria-hidden="true"><use href="#ic-device-floppy"></use></svg><span class="lbl"> Guardar</span></button>
   <button class="btn btn-primary" id="printBtn"><svg class="ic" aria-hidden="true"><use href="#ic-printer"></use></svg> Imprimir / PDF</button>
   <button class="btn" id="waBtn" style="background:#25D366;color:#fff;border-color:#25D366"><svg class="ic" aria-hidden="true"><use href="#ic-brand-whatsapp"></use></svg> WhatsApp</button>
-  <button class="btn" id="excelBtn" style="background:#1D6F42;color:#fff;border-color:#1D6F42" title="Exportar a Excel (Pro)">📊 Excel</button>
+  <button class="btn" id="provBtn" style="background:#D97706;color:#fff;border-color:#D97706" title="Consultar estos productos a tu proveedor por WhatsApp" onclick="provConsultar()">📦 Consultar proveedor</button>
 </div>
 
 
@@ -2804,7 +2804,7 @@ window.exportarExcel = function(){
   XLSX.writeFile(wb, 'Proforma_'+(cot.num||'s-n')+'_'+nombreCliente+'.xlsx');
   syncStatus('📊 Excel generado', '#1D6F42');
 };
-document.getElementById('excelBtn').onclick = window.exportarExcel;
+
 // ===== FACTURACIÓN ELECTRÓNICA (DATIL) =====
 (function(){
   const overlay = ()=>document.getElementById('factOverlay');
@@ -5894,7 +5894,7 @@ window.addEventListener('load', async ()=>{
 })();
 </script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
 <script>
 /* ═══════════════════════════════════════════════════════════════
@@ -6673,6 +6673,7 @@ window.addEventListener('load', function(){
     <div class="cat-sub" id="catAdmSub"></div>
     <div id="catTope"></div>
     <button type="button" id="stkAbrirBtn" class="cat-btn" style="display:none;width:100%;margin-bottom:12px" onclick="stkAbrir()">📦 Stock de productos</button>
+    <button type="button" class="cat-btn" style="width:100%;margin-bottom:12px;background:#D97706;border-color:#D97706" onclick="provAdmin()">🚚 Mis proveedores</button>
     <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;margin-bottom:14px">
       <div style="font-size:12.5px;font-weight:700;color:var(--brand);margin-bottom:6px">📋 Cargar productos de tu oficio</div>
       <div style="font-size:11.5px;color:#64748b;margin-bottom:8px">Arranca con una lista lista de productos y servicios comunes — edítalos o bórralos luego.</div>
@@ -6912,6 +6913,129 @@ window.addEventListener('load', function(){
     cfgSync(); refrescar();
     if(on()){ setTimeout(bajarNube,5000); setTimeout(aviso,9000); }
   });
+})();
+</script>
+<div class="modal-overlay" id="provModal" style="z-index:1260">
+  <div class="hist-box" style="border-top:5px solid #D97706">
+    <div class="hist-title" id="provTitulo" style="color:#B45309">📦 Consultar a proveedor</div>
+    <button class="modal-close" onclick="document.getElementById('provModal').classList.remove('open')">✕</button>
+    <div id="provCuerpo"></div>
+  </div>
+</div>
+<script>
+/* ═══ CONSULTAR A PROVEEDOR (nov-2026) ═══
+   Proveedores: localStorage 'ricchary_proveedores' + Supabase 'proveedores'.
+   Arma un mensaje con cantidad + descripción (sin precios) y abre el chat del proveedor. */
+(function(){
+  var K='ricchary_proveedores';
+  function $(id){ return document.getElementById(id); }
+  function esc(t){ return String(t==null?'':t).replace(/[&<>"']/g,function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+  function lista(){ try{ return JSON.parse(localStorage.getItem(K)||'[]'); }catch(e){ return []; } }
+  function guardar(a){ try{ localStorage.setItem(K,JSON.stringify(a)); }catch(e){} }
+  function telWa(t){ t=String(t||'').replace(/[^0-9]/g,''); if(t.indexOf('0')===0) t='593'+t.slice(1); else if(t.length===9) t='593'+t; return t; }
+  async function uid(){ try{ var sb=window.__sbClient; if(!sb) return null; var r=await sb.auth.getSession(); return r&&r.data&&r.data.session?r.data.session.user.id:null; }catch(e){ return null; } }
+  async function subir(){
+    var u=await uid(); if(!u) return; var a=lista(), cambio=false;
+    for(var i=0;i<a.length;i++){ var p=a[i]; if(p.nid) continue;
+      try{ var r=await window.__sbClient.from('proveedores').insert({user_id:u,nombre:p.nombre,whatsapp:p.whatsapp,provee:p.provee||null}).select('id').single();
+        if(r&&!r.error&&r.data){ p.nid=r.data.id; cambio=true; } }catch(e){} }
+    if(cambio) guardar(a);
+  }
+  async function bajar(){
+    var u=await uid(); if(!u) return;
+    try{ var r=await window.__sbClient.from('proveedores').select('*').eq('user_id',u).order('nombre'); if(r.error) return;
+      var pend=lista().filter(function(p){ return !p.nid; });
+      guardar((r.data||[]).map(function(x){ return {lid:'n'+x.id,nid:x.id,nombre:x.nombre,whatsapp:x.whatsapp,provee:x.provee||''}; }).concat(pend));
+    }catch(e){}
+    await subir(); if($('provModal').classList.contains('open')) repintar();
+  }
+  var modo='consulta', sel=null, repintar=function(){};
+
+  /* ---------- Administrar ---------- */
+  function pintarAdmin(volver){
+    modo='admin'; $('provTitulo').textContent='🚚 Mis proveedores';
+    var a=lista();
+    var h='<div style="font-size:12px;color:var(--muted);margin-bottom:10px">Guarda a quién le compras. Desde la proforma, el botón <b>Consultar proveedor</b> les escribe por WhatsApp.</div>'+
+      '<div style="display:grid;gap:8px;margin-bottom:12px;background:#FFFBEB;border:1px solid #FDE68A;border-radius:12px;padding:12px">'+
+      '<input id="provNom" placeholder="Nombre o empresa" style="padding:9px 11px;border:1px solid #cbd5e1;border-radius:9px;font-size:13px">'+
+      '<input id="provTel" placeholder="WhatsApp (ej. 0991234567)" inputmode="tel" style="padding:9px 11px;border:1px solid #cbd5e1;border-radius:9px;font-size:13px">'+
+      '<input id="provQue" placeholder="Qué te provee (opcional): gorras, telas, hilos…" style="padding:9px 11px;border:1px solid #cbd5e1;border-radius:9px;font-size:13px">'+
+      '<button onclick="provAgregar()" style="padding:10px;border:0;border-radius:9px;background:#D97706;color:#fff;font-weight:800;cursor:pointer">+ Agregar proveedor</button></div>';
+    h+= a.length ? a.map(function(p){
+      return '<div style="display:flex;align-items:center;gap:10px;border:1px solid #e2e8f0;border-radius:10px;padding:9px 12px;margin-bottom:7px">'+
+        '<div style="flex:1;min-width:0"><b style="font-size:13.5px">'+esc(p.nombre)+'</b><div style="font-size:11.5px;color:var(--muted)">'+esc(p.whatsapp)+(p.provee?' · '+esc(p.provee):'')+(p.nid?'':' · <span style="color:#b45309">sin subir</span>')+'</div></div>'+
+        '<button onclick="provBorrar(\''+esc(p.lid)+'\')" style="border:0;background:none;color:#b91c1c;font-size:12px;cursor:pointer">Eliminar</button></div>';
+    }).join('') : '<div style="text-align:center;color:var(--muted);font-size:12.5px;padding:10px">Aún no tienes proveedores.</div>';
+    if(volver) h+='<button onclick="provConsultar()" style="width:100%;margin-top:8px;padding:10px;border:1px solid #D97706;border-radius:9px;background:#fff;color:#B45309;font-weight:800;cursor:pointer">← Volver a la consulta</button>';
+    $('provCuerpo').innerHTML=h;
+    repintar=function(){ pintarAdmin(volver); };
+  }
+  window.provAdmin=function(volver){ pintarAdmin(!!volver); $('provModal').classList.add('open'); bajar(); };
+  window.provAgregar=function(){
+    var n=($('provNom').value||'').trim(), t=($('provTel').value||'').trim(), q=($('provQue').value||'').trim();
+    if(!n){ alert('Escribe el nombre del proveedor.'); return; }
+    if(telWa(t).length<11){ alert('Revisa el número de WhatsApp.'); return; }
+    var a=lista(); a.push({lid:'l'+Date.now(),nombre:n,whatsapp:t,provee:q}); a.sort(function(x,y){ return x.nombre.localeCompare(y.nombre); }); guardar(a);
+    repintar(); subir().then(repintar);
+  };
+  window.provBorrar=async function(lid){
+    var a=lista(), p=a.filter(function(x){ return String(x.lid)===String(lid); })[0]; if(!p) return;
+    if(!confirm('¿Eliminar a '+p.nombre+'?')) return;
+    guardar(a.filter(function(x){ return x!==p; })); repintar();
+    var u=await uid(); if(u && p.nid){ try{ await window.__sbClient.from('proveedores').delete().eq('user_id',u).eq('id',p.nid); }catch(e){} }
+  };
+
+  /* ---------- Consulta ---------- */
+  function lineas(){
+    var out=[]; document.querySelectorAll('#itemsBody tr').forEach(function(tr){
+      var c=tr.cells; if(!c||c.length<2) return;
+      var q=(tr.querySelector('.qty-input')||{}).value||'', d=((c[1].querySelector('input')||{}).value||'').trim();
+      if(d) out.push({q:String(q).trim(),d:d});
+    }); return out;
+  }
+  function mensaje(p,ls){
+    var nombre=p? p.nombre.split(' ')[0] : '';
+    return 'Hola'+(nombre?' '+nombre:'')+', buen día. Te consulto disponibilidad y precio de:\n'+
+      ls.map(function(l){ return '• '+(l.q?l.q+' × ':'')+l.d; }).join('\n')+
+      '\n¿Para cuándo podrías entregarlo? Gracias.';
+  }
+  function pintarConsulta(){
+    modo='consulta'; $('provTitulo').textContent='📦 Consultar a proveedor';
+    var a=lista(), ls=lineas();
+    if(!ls.length){ $('provCuerpo').innerHTML='<div style="text-align:center;color:var(--muted);padding:14px">Agrega al menos un ítem a la proforma para consultar.</div>'; return; }
+    if(!a.length){
+      $('provCuerpo').innerHTML='<div style="text-align:center;color:var(--muted);padding:10px 0 14px">Aún no tienes proveedores guardados.</div>'+
+        '<button onclick="provAdmin(true)" style="width:100%;padding:11px;border:0;border-radius:9px;background:#D97706;color:#fff;font-weight:800;cursor:pointer">+ Agregar proveedor</button>'; return;
+    }
+    if(!sel || !a.some(function(p){ return p.lid===sel; })) sel=a[0].lid;
+    var h='<div style="font-size:12px;font-weight:800;color:#B45309;margin-bottom:6px">1. Marca qué consultar</div>'+
+      ls.map(function(l,i){ return '<label style="display:flex;gap:9px;align-items:center;padding:7px 10px;border:1px solid #FDE68A;background:#FFFBEB;border-radius:9px;margin-bottom:6px;font-size:13px;cursor:pointer"><input type="checkbox" class="provL" data-i="'+i+'" checked> '+(l.q?'<b>'+esc(l.q)+'</b> × ':'')+esc(l.d)+'</label>'; }).join('')+
+      '<div style="font-size:12px;font-weight:800;color:#B45309;margin:12px 0 6px">2. Elige el proveedor</div>'+
+      '<select id="provSel" style="width:100%;padding:9px 11px;border:1px solid #cbd5e1;border-radius:9px;font-size:13px">'+
+        a.map(function(p){ return '<option value="'+esc(p.lid)+'"'+(p.lid===sel?' selected':'')+'>'+esc(p.nombre)+(p.provee?' — '+esc(p.provee):'')+'</option>'; }).join('')+'</select>'+
+      '<div style="text-align:right;margin-top:4px"><a href="#" onclick="provAdmin(true);return false" style="font-size:12px;color:#B45309">Administrar proveedores</a></div>'+
+      '<div style="font-size:12px;font-weight:800;color:#B45309;margin:8px 0 6px">3. Revisa el mensaje</div>'+
+      '<textarea id="provMsg" style="width:100%;box-sizing:border-box;min-height:120px;padding:10px;border:1px solid #cbd5e1;border-radius:9px;font-size:13px;font-family:inherit"></textarea>'+
+      '<button onclick="provEnviar()" style="width:100%;margin-top:10px;padding:12px;border:0;border-radius:10px;background:#25D366;color:#fff;font-weight:800;font-size:14px;cursor:pointer">Enviar por WhatsApp</button>'+
+      '<div style="font-size:11px;color:var(--muted);text-align:center;margin-top:6px">Se abre el chat del proveedor con el mensaje listo; solo tocas enviar. No incluye precios.</div>';
+    $('provCuerpo').innerHTML=h;
+    function rearmar(){
+      var p=lista().filter(function(x){ return x.lid===$('provSel').value; })[0]; sel=p&&p.lid;
+      var marcadas=ls.filter(function(l,i){ var c=document.querySelector('.provL[data-i="'+i+'"]'); return c&&c.checked; });
+      $('provMsg').value=marcadas.length? mensaje(p,marcadas) : '';
+    }
+    $('provSel').onchange=rearmar; document.querySelectorAll('.provL').forEach(function(c){ c.onchange=rearmar; });
+    rearmar();
+    repintar=function(){ if(modo==='consulta') pintarConsulta(); };
+  }
+  window.provConsultar=function(){ pintarConsulta(); $('provModal').classList.add('open'); bajar(); };
+  window.provEnviar=function(){
+    var p=lista().filter(function(x){ return x.lid===($('provSel')||{}).value; })[0], m=(($('provMsg')||{}).value||'').trim();
+    if(!p){ alert('Elige un proveedor.'); return; }
+    if(!m){ alert('Marca al menos un producto.'); return; }
+    window.open('https://wa.me/'+telWa(p.whatsapp)+'?text='+encodeURIComponent(m),'_blank');
+  };
+  window.addEventListener('load',function(){ setTimeout(bajar,6000); });
 })();
 </script>
 </body></html>
