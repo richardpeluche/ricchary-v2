@@ -3380,7 +3380,7 @@ async function syncNextOrden(){
 }
 
 // Traer historial desde la hoja y fusionarlo con el local
-let CLOUD_HIST = [];
+var CLOUD_HIST = [];   // var (no let): así window.CLOUD_HIST y CLOUD_HIST son la misma lista (la nube de Supabase escribe en window.CLOUD_HIST)
 async function syncListar(){
   if(!SYNC_ON) return;
   try{
@@ -6127,6 +6127,7 @@ window.addEventListener('load', async ()=>{
     var _syncListarOrig = window.syncListar;
     window.syncListar = async function(){
       var r1 = _syncListarOrig.apply(this, arguments);     // Apps Script, si aplica (no se toca)
+      try{ await r1; }catch(e){}                            // primero la hoja, luego la nube (si no, la hoja pisaría las filas de la nube)
       var uid = await uidActual();
       if(uid){
         try{
@@ -6151,7 +6152,6 @@ window.addEventListener('load', async ()=>{
           nubeStatus('⚠️ No se pudo leer la nube. Se muestra lo local.', 'err');
         }
       }
-      try{ await r1; }catch(e){}
     };
   }
 
