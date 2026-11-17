@@ -1125,7 +1125,7 @@ body.pidiendo-impuesto .claim-sep{margin:6px auto}
         <div style="margin-top:10px;text-align:left;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px">
           <div style="font-size:12px;color:#475569;line-height:1.55">
             🧾 La URL de <b>Apps Script</b> en Configuración ya <b>no hace falta para el historial</b>.
-            Solo la necesitas si vas a emitir <b>facturas electrónicas</b> con Datil o consultar RUC.
+            Solo la necesitas para emitir <b>facturas electrónicas</b> con Datil. La consulta de RUC ya funciona con tu cuenta.
           </div>
         </div>
       </div>
@@ -1496,7 +1496,7 @@ body.pidiendo-impuesto .claim-sep{margin:6px auto}
 
       <!-- Sincronización + Facturación unificada -->
       <div style="margin-bottom:12px">
-        <div style="font-size:13px;font-weight:700;color:var(--brand);margin-bottom:6px">🧾 Facturación electrónica (Datil) y consulta de RUC</div><div style="font-size:11px;color:var(--muted);margin-bottom:8px;line-height:1.5">Esta URL ya <b>no hace falta</b> para guardar tu historial — eso lo resuelve la cuenta de arriba. Solo la necesitas si vas a emitir <b>facturas electrónicas</b> con Datil o consultar RUC.</div>
+        <div style="font-size:13px;font-weight:700;color:var(--brand);margin-bottom:6px">🧾 Facturación electrónica (Datil)</div><div style="font-size:11px;color:var(--muted);margin-bottom:8px;line-height:1.5">Esta URL <b>solo hace falta para emitir facturas electrónicas</b> con Datil. El historial, los reportes y la <b>consulta de RUC</b> funcionan con tu cuenta de arriba, sin configurar nada.</div>
         <input type="text" id="cfgSyncUrl" placeholder="https://script.google.com/macros/s/.../exec" style="font-size:12px">
         <div style="display:flex;gap:8px;margin-top:6px">
           <button type="button" id="cfgTestSync" style="flex:1;background:var(--brand);color:#fff;border:none;padding:8px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">🔗 Probar conexión</button>
@@ -3124,15 +3124,31 @@ window.exportarExcel = function(){
       show('⚠️ Ingresa una cédula (10 dígitos) o RUC (13 dígitos).', '#b45309');
       return;
     }
-    if(!SYNC_ON){
-      show('⚠️ Necesitas la sincronización activada (versión Pro) para consultar al SRI.', '#b45309');
-      return;
+    // 1) Con sesión en la nube: consulta por la nube (no necesita Apps Script).
+    // 2) Si la nube no responde y hay Apps Script configurado: se usa como respaldo.
+    async function porNube(){
+      try{
+        const sb = window.__sbClient; if(!sb) return null;
+        const ses = await sb.auth.getSession();
+        if(!ses || !ses.data || !ses.data.session) return null;
+        const r = await sb.functions.invoke('consultar-ruc', { body: { ruc: ident } });
+        if(r.error || !r.data) return { ok:false, _fallo:true, error:'No se pudo consultar al SRI en este momento.' };
+        if(!r.data.ok && /No se pudo consultar/.test(r.data.error||'')) r.data._fallo = true;
+        return r.data;
+      }catch(e){ return { ok:false, _fallo:true, error:'No se pudo consultar al SRI en este momento.' }; }
     }
     btn.disabled = true; btn.textContent = '⏳';
     show('⏳ Consultando al SRI...', 'var(--brand)');
     try{
-      const r = await fetch(SYNC_URL + '?accion=consultarRuc&ruc=' + encodeURIComponent(ident));
-      const j = await r.json();
+      let j = await porNube();
+      if((!j || j._fallo) && SYNC_ON){
+        const r = await fetch(SYNC_URL + '?accion=consultarRuc&ruc=' + encodeURIComponent(ident));
+        j = await r.json();
+      }
+      if(!j){
+        show('⚠️ Inicia sesión con Google en ⚙️ Configuración para consultar al SRI.', '#b45309');
+        return;
+      }
       if(!j || !j.ok){
         show('❌ ' + ((j&&j.error) || 'No se encontró el contribuyente.') + ' Puedes llenar los datos manualmente.', '#b91c1c');
         return;
@@ -5908,7 +5924,7 @@ window.addEventListener('load', async ()=>{
 
    Alcance de HOY: historial de cotizaciones + gastos.
    El Apps Script sigue siendo el único camino para Facturación
-   (Datil) y Consulta de RUC — esas credenciales son secretas y no
+   (Datil) — esas credenciales son secretas y no
    deben vivir en el navegador.
    ═══════════════════════════════════════════════════════════════ */
 (function(){
