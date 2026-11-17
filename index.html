@@ -1990,6 +1990,10 @@ function guardarCotizacion(){
   // Fijar número de orden usado y preparar el siguiente
   const nActual = parseInt(document.getElementById('docOrden')?.getAttribute('data-num')||getNextOrden(),10);
   confirmarOrden(nActual);
+  // Ya guardada: desde ahora el formulario ES esta cotización. Ninguna actualización en
+  // segundo plano (inicio de sesión, volver de WhatsApp) puede cambiarle el número;
+  // si no, el siguiente Guardar / PDF / WhatsApp la duplicaba con el número siguiente.
+  window._editandoExistente = true;
 }
 
 // Identifica una cotización para el conteo del plan Free: número de orden
