@@ -300,9 +300,9 @@ input, textarea, select, [contenteditable]{
 }
 
 /* ===== MODAL ACTIVACIÓN PRO ===== */
-.pro-overlay{position:fixed;inset:0;z-index:950;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;padding:16px}
+.pro-overlay{position:fixed;inset:0;z-index:950;background:rgba(0,0,0,.6);display:none;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto;-webkit-overflow-scrolling:touch}
 .pro-overlay.show{display:flex}
-.pro-box{background:#fff;border-radius:20px;max-width:420px;width:100%;padding:0;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+.pro-box{background:#fff;border-radius:20px;max-width:420px;width:100%;padding:0;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.3);margin:auto 0}
 .pro-header{background:linear-gradient(135deg,#1A1A2E,var(--brand));color:#fff;padding:24px;text-align:center}
 .pro-header h2{margin:0;font-size:20px}
 .pro-header p{margin:6px 0 0;font-size:13px;opacity:.85}
@@ -905,7 +905,7 @@ body.pidiendo-impuesto .claim-sep{margin:6px auto}
       </button>
       <!-- Código de activación -->
       <div class="pro-divider">Ya tienes tu código</div>
-      <input type="text" id="proCodigoInput" class="pro-code-input" placeholder="CÓDIGO-XXXX" maxlength="20">
+      <input type="text" id="proCodigoInput" class="pro-code-input" placeholder="CÓDIGO-XXXX" maxlength="20" autocapitalize="characters" autocomplete="off" enterkeyhint="go" onkeydown="if(event.key==='Enter'){event.preventDefault();activarCodigo();}">
       <div class="pro-msg" id="proMsg"></div>
       <div class="pro-actions">
         <button class="pro-cancel" onclick="cerrarModalPro()">Cancelar</button>
